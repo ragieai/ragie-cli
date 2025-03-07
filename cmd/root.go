@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -14,7 +15,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "ragie",
+	Use:   filepath.Base(os.Args[0]),
 	Short: "A CLI tool for importing data into Ragie",
 	Long: `A command line interface for importing various data formats into Ragie,
 including YouTube data, WordPress exports, and ReadmeIO documentation.`,
