@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<posts>
+  <title>Test WordPress Blog</title>
+  <link>https://example.com</link>
+  <description>Test WordPress Export</description>
+  <post>
+    <title>First Test Post</title>
+    <url>https://example.com/first-post</url>
+    <description>This is the excerpt of the first post</description>
+    <content>This is the full content of the first post. It contains more detailed information.</content>
+  </post>
+  <post>
+    <title>Second Test Post</title>
+    <url>https://example.com/second-post</url>
+    <description>A brief description of the second post</description>
+    <content>The complete content of the second post, with all the details and information.</content>
+  </post>
+  <post>
+    <title></title>
+    <url></url>
+    <description></description>
+    <content></content>
+  </post>
+  <post>
+    <title>Post Without URL</title>
+    <description>This post has no URL</description>
+    <content>Content without a URL should still work</content>
+  </post>
+</posts>
