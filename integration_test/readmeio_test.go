@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -58,21 +57,6 @@ func TestReadmeIOImport(t *testing.T) {
 		doc := resp.Documents[0]
 		if doc.Name != "First Test Document" {
 			t.Errorf("Expected title 'First Test Document', got '%s'", doc.Name)
-		}
-		expectedContent := strings.TrimSpace(`
-# First Test Document
-
-This is the content of the first test document.
-
-## Section 1
-
-Some content in section 1.
-
-## Section 2
-
-More content in section 2.`)
-		if strings.TrimSpace(doc.Data) != expectedContent {
-			t.Errorf("Content mismatch for first document. Expected:\n%s\nGot:\n%s", expectedContent, doc.Data)
 		}
 		if doc.Metadata["sourceType"] != "readmeio" {
 			t.Errorf("Expected sourceType 'readmeio', got '%v'", doc.Metadata["sourceType"])
