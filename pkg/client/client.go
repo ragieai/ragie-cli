@@ -34,11 +34,15 @@ func NewClient(apiKey string) *Client {
 	}
 }
 
-func (c *Client) CreateDocumentRaw(name, data string, metadata map[string]interface{}) (*Document, error) {
+func (c *Client) CreateDocumentRaw(partition string, name string, data string, metadata map[string]interface{}) (*Document, error) {
 	payload := map[string]interface{}{
 		"name":     name,
 		"data":     data,
 		"metadata": metadata,
+	}
+
+	if partition != "" {
+		payload["partition"] = partition
 	}
 
 	jsonData, err := json.Marshal(payload)
@@ -73,7 +77,7 @@ func (c *Client) CreateDocumentRaw(name, data string, metadata map[string]interf
 	return &doc, nil
 }
 
-func (c *Client) ListDocuments(filter map[string]interface{}, pageSize int) (*ListResponse, error) {
+func (c *Client) ListDocuments(partition string, filter map[string]interface{}, pageSize int) (*ListResponse, error) {
 	query := url.Values{}
 	if filter != nil {
 		filterJSON, err := json.Marshal(filter)

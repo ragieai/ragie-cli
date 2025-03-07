@@ -19,8 +19,9 @@ import (
 
 // ImportConfig holds configuration for import operations
 type ImportConfig struct {
-	DryRun bool
-	Delay  float64
+	DryRun    bool
+	Delay     float64
+	Partition string
 }
 
 var importCmd = &cobra.Command{
@@ -33,8 +34,9 @@ var importCmd = &cobra.Command{
 
 		ragieClient := client.NewClient(viper.GetString("api_key"))
 		config := ImportConfig{
-			DryRun: dryRun,
-			Delay:  delay,
+			DryRun:    dryRun,
+			Delay:     delay,
+			Partition: partition,
 		}
 
 		switch importType {
@@ -54,27 +56,27 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 }
 
-func documentExists(c *client.Client, externalID string) bool {
+func documentExists(c *client.Client, config ImportConfig, externalID string) bool {
 	filter := map[string]interface{}{
 		"external_id": externalID,
 	}
 
-	resp, err := c.ListDocuments(filter, 1)
+	resp, err := c.ListDocuments(config.Partition, filter, 1)
 	if err != nil {
 		return false
 	}
 	return len(resp.Documents) > 0
 }
 
-func createDocumentRaw(c *client.Client, externalID string, name, data string, metadata map[string]interface{}, dryRun bool) error {
-	if dryRun {
+func createDocumentRaw(c *client.Client, externalID string, name, data string, metadata map[string]interface{}, config ImportConfig) error {
+	if config.DryRun {
 		fmt.Printf("would save document: %s\n", name)
 		return nil
 	}
 
 	metadata["external_id"] = externalID
 
-	doc, err := c.CreateDocumentRaw(name, data, metadata)
+	doc, err := c.CreateDocumentRaw(config.Partition, name, data, metadata)
 	if err != nil {
 		return err
 	}
@@ -104,7 +106,7 @@ func ImportYouTube(c *client.Client, youtubeFile string, config ImportConfig) er
 			continue
 		}
 
-		if documentExists(c, videoID) {
+		if documentExists(c, config, videoID) {
 			fmt.Printf("warning: skipping video with existing document: %s\n", videoID)
 			continue
 		}
@@ -132,7 +134,7 @@ func ImportYouTube(c *client.Client, youtubeFile string, config ImportConfig) er
 
 		err := createDocumentRaw(c, videoID, title, content.String(), map[string]interface{}{
 			"title": title,
-		}, config.DryRun)
+		}, config)
 		if err != nil {
 			fmt.Printf("failed to import video %s: %v\n", videoID, err)
 		}
@@ -171,7 +173,7 @@ func ImportWordPress(c *client.Client, wordpressFile string, config ImportConfig
 		}
 		metadata["url"] = url
 
-		if documentExists(c, url) {
+		if documentExists(c, config, url) {
 			fmt.Printf("warning: skipping post with existing document: %s\n", url)
 			continue
 		}
@@ -197,7 +199,7 @@ func ImportWordPress(c *client.Client, wordpressFile string, config ImportConfig
 
 		data := strings.Join([]string{title, desc, content}, "\n\n")
 
-		err := createDocumentRaw(c, url, title, data, metadata, config.DryRun)
+		err := createDocumentRaw(c, url, title, data, metadata, config)
 		if err != nil {
 			fmt.Printf("failed to import post: %v\n", err)
 		}
@@ -272,7 +274,7 @@ func ImportReadmeIO(c *client.Client, readmeZip string, config ImportConfig) err
 
 		metadata["readmeId"] = docID
 
-		if documentExists(c, docID) {
+		if documentExists(c, config, docID) {
 			fmt.Printf("warning: skipping document with existing id: %s\n", docID)
 			continue
 		}
@@ -282,7 +284,7 @@ func ImportReadmeIO(c *client.Client, readmeZip string, config ImportConfig) err
 			title = strings.TrimSuffix(filepath.Base(file.Name), ".md")
 		}
 
-		err = createDocumentRaw(c, docID, title, contentStr, metadata, config.DryRun)
+		err = createDocumentRaw(c, docID, title, contentStr, metadata, config)
 		if err != nil {
 			fmt.Printf("failed to import readme document %s: %v\n", file.Name, err)
 		}

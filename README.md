@@ -21,31 +21,32 @@ export RAGIE_API_KEY=your_api_key_here
 ### Import YouTube Data
 
 ```bash
-ragie import youtube path/to/youtube.json [--dry-run] [--delay 2.0]
+ragie import youtube path/to/youtube.json [--dry-run] [--delay 2.0] [--partition your-partition]
 ```
 
 ### Import WordPress Data
 
 ```bash
-ragie import wordpress path/to/wordpress.xml [--dry-run] [--delay 2.0]
+ragie import wordpress path/to/wordpress.xml [--dry-run] [--delay 2.0] [--partition your-partition]
 ```
 
 ### Import ReadmeIO Data
 
 ```bash
-ragie import readmeio path/to/readme.zip [--dry-run] [--delay 2.0]
+ragie import readmeio path/to/readme.zip [--dry-run] [--delay 2.0] [--partition your-partition]
 ```
 
 ### Clear All Documents
 
 ```bash
-ragie clear [--dry-run]
+ragie clear [--dry-run] [--partition your-partition]
 ```
 
 ### Global Flags
 
 - `--dry-run`: Print what would happen without making changes
 - `--delay`: Delay between imports in seconds (default: 2.0)
+- `--partition`: Specify a custom partition for your data (e.g., "production", "staging", "test")
 
 ## Development
 

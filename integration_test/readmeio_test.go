@@ -47,7 +47,7 @@ func TestReadmeIOImport(t *testing.T) {
 	time.Sleep(1 * time.Second) // Give API some time to process
 
 	// Check first document
-	resp, err := c.ListDocuments(map[string]interface{}{"external_id": "first-doc"}, 1)
+	resp, err := c.ListDocuments("", map[string]interface{}{"external_id": "first-doc"}, 1)
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestReadmeIOImport(t *testing.T) {
 	}
 
 	// Check second document
-	resp, err = c.ListDocuments(map[string]interface{}{"external_id": "second-doc"}, 1)
+	resp, err = c.ListDocuments("", map[string]interface{}{"external_id": "second-doc"}, 1)
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestReadmeIOImport(t *testing.T) {
 	}
 
 	// Verify that invalid document was not imported
-	resp, err = c.ListDocuments(map[string]interface{}{"title": "Invalid Document"}, 1)
+	resp, err = c.ListDocuments("", map[string]interface{}{"title": "Invalid Document"}, 1)
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestReadmeIOImport(t *testing.T) {
 func cleanupReadmeIOTestDocuments(t *testing.T, c *client.Client) {
 	testIDs := []string{"first-doc", "second-doc"}
 	for _, id := range testIDs {
-		resp, err := c.ListDocuments(map[string]interface{}{"external_id": id}, 1)
+		resp, err := c.ListDocuments("", map[string]interface{}{"external_id": id}, 1)
 		if err != nil {
 			t.Logf("Error listing documents for cleanup: %v", err)
 			continue
@@ -110,7 +110,7 @@ func cleanupReadmeIOTestDocuments(t *testing.T, c *client.Client) {
 	}
 
 	// Also try to clean up by title in case any invalid documents got through
-	resp, err := c.ListDocuments(map[string]interface{}{"title": "Invalid Document"}, 1)
+	resp, err := c.ListDocuments("", map[string]interface{}{"title": "Invalid Document"}, 1)
 	if err != nil {
 		t.Logf("Error listing documents for cleanup: %v", err)
 		return

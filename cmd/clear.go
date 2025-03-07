@@ -18,7 +18,7 @@ var clearCmd = &cobra.Command{
 		c := client.NewClient(viper.GetString("api_key"))
 
 		for {
-			resp, err := c.ListDocuments(nil, 0)
+			resp, err := c.ListDocuments("", map[string]interface{}{}, 0)
 			if err != nil {
 				return fmt.Errorf("failed to list documents: %v", err)
 			}
