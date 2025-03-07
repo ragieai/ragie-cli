@@ -54,7 +54,11 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 }
 
-func documentExists(c *client.Client, filter map[string]interface{}) bool {
+func documentExists(c *client.Client, externalID string) bool {
+	filter := map[string]interface{}{
+		"external_id": externalID,
+	}
+
 	resp, err := c.ListDocuments(filter, 1)
 	if err != nil {
 		return false
@@ -62,11 +66,13 @@ func documentExists(c *client.Client, filter map[string]interface{}) bool {
 	return len(resp.Documents) > 0
 }
 
-func createDocumentRaw(c *client.Client, name, data string, metadata map[string]interface{}, dryRun bool) error {
+func createDocumentRaw(c *client.Client, externalID string, name, data string, metadata map[string]interface{}, dryRun bool) error {
 	if dryRun {
 		fmt.Printf("would save document: %s\n", name)
 		return nil
 	}
+
+	metadata["external_id"] = externalID
 
 	doc, err := c.CreateDocumentRaw(name, data, metadata)
 	if err != nil {
@@ -98,7 +104,7 @@ func ImportYouTube(c *client.Client, youtubeFile string, config ImportConfig) er
 			continue
 		}
 
-		if documentExists(c, map[string]interface{}{"videoId": videoID}) {
+		if documentExists(c, videoID) {
 			fmt.Printf("warning: skipping video with existing document: %s\n", videoID)
 			continue
 		}
@@ -124,9 +130,8 @@ func ImportYouTube(c *client.Client, youtubeFile string, config ImportConfig) er
 			continue
 		}
 
-		err := createDocumentRaw(c, title, content.String(), map[string]interface{}{
-			"title":   title,
-			"videoId": videoID,
+		err := createDocumentRaw(c, videoID, title, content.String(), map[string]interface{}{
+			"title": title,
 		}, config.DryRun)
 		if err != nil {
 			fmt.Printf("failed to import video %s: %v\n", videoID, err)
@@ -166,7 +171,7 @@ func ImportWordPress(c *client.Client, wordpressFile string, config ImportConfig
 		}
 		metadata["url"] = url
 
-		if documentExists(c, map[string]interface{}{"url": url}) {
+		if documentExists(c, url) {
 			fmt.Printf("warning: skipping post with existing document: %s\n", url)
 			continue
 		}
@@ -192,7 +197,7 @@ func ImportWordPress(c *client.Client, wordpressFile string, config ImportConfig
 
 		data := strings.Join([]string{title, desc, content}, "\n\n")
 
-		err := createDocumentRaw(c, title, data, metadata, config.DryRun)
+		err := createDocumentRaw(c, url, title, data, metadata, config.DryRun)
 		if err != nil {
 			fmt.Printf("failed to import post: %v\n", err)
 		}
@@ -267,7 +272,7 @@ func ImportReadmeIO(c *client.Client, readmeZip string, config ImportConfig) err
 
 		metadata["readmeId"] = docID
 
-		if documentExists(c, map[string]interface{}{"readmeId": docID}) {
+		if documentExists(c, docID) {
 			fmt.Printf("warning: skipping document with existing id: %s\n", docID)
 			continue
 		}
@@ -277,7 +282,7 @@ func ImportReadmeIO(c *client.Client, readmeZip string, config ImportConfig) err
 			title = strings.TrimSuffix(filepath.Base(file.Name), ".md")
 		}
 
-		err = createDocumentRaw(c, title, contentStr, metadata, config.DryRun)
+		err = createDocumentRaw(c, docID, title, contentStr, metadata, config.DryRun)
 		if err != nil {
 			fmt.Printf("failed to import readme document %s: %v\n", file.Name, err)
 		}

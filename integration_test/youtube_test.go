@@ -47,7 +47,7 @@ func TestYouTubeImport(t *testing.T) {
 	time.Sleep(1 * time.Second) // Give API some time to process
 
 	// Check first video
-	resp, err := c.ListDocuments(map[string]interface{}{"videoId": "test123"}, 1)
+	resp, err := c.ListDocuments(map[string]interface{}{"external_id": "test123"}, 1)
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestYouTubeImport(t *testing.T) {
 	}
 
 	// Check second video
-	resp, err = c.ListDocuments(map[string]interface{}{"videoId": "test456"}, 1)
+	resp, err = c.ListDocuments(map[string]interface{}{"external_id": "test456"}, 1)
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestYouTubeImport(t *testing.T) {
 func cleanupTestDocuments(t *testing.T, c *client.Client) {
 	testIDs := []string{"test123", "test456", "test789"}
 	for _, id := range testIDs {
-		resp, err := c.ListDocuments(map[string]interface{}{"videoId": id}, 1)
+		resp, err := c.ListDocuments(map[string]interface{}{"external_id": id}, 1)
 		if err != nil {
 			t.Logf("Error listing documents for cleanup: %v", err)
 			continue

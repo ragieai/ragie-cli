@@ -47,7 +47,7 @@ func TestWordPressImport(t *testing.T) {
 	time.Sleep(1 * time.Second) // Give API some time to process
 
 	// Check first post
-	resp, err := c.ListDocuments(map[string]interface{}{"url": "https://example.com/first-post"}, 1)
+	resp, err := c.ListDocuments(map[string]interface{}{"external_id": "https://example.com/first-post"}, 1)
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestWordPressImport(t *testing.T) {
 	}
 
 	// Check second post
-	resp, err = c.ListDocuments(map[string]interface{}{"url": "https://example.com/second-post"}, 1)
+	resp, err = c.ListDocuments(map[string]interface{}{"external_id": "https://example.com/second-post"}, 1)
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -107,7 +107,7 @@ func cleanupWordPressTestDocuments(t *testing.T, c *client.Client) {
 
 	// Clean up by URL
 	for _, url := range testURLs {
-		resp, err := c.ListDocuments(map[string]interface{}{"url": url}, 1)
+		resp, err := c.ListDocuments(map[string]interface{}{"external_id": url}, 1)
 		if err != nil {
 			t.Logf("Error listing documents for cleanup: %v", err)
 			continue
