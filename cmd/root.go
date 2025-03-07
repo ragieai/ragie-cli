@@ -14,7 +14,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "ragie-cli",
+	Use:   "ragie",
 	Short: "A CLI tool for importing data into Ragie",
 	Long: `A command line interface for importing various data formats into Ragie,
 including YouTube data, WordPress exports, and ReadmeIO documentation.`,
