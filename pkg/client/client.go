@@ -61,7 +61,7 @@ func (c *Client) CreateDocumentRaw(name, data string, metadata map[string]interf
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API error: %s - %s", resp.Status, string(body))
 	}
