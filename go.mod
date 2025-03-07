@@ -1,4 +1,4 @@
-module ragie-cli
+module ragie
 
 go 1.24.1
 

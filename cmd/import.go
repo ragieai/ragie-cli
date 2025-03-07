@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"ragie-cli/pkg/client"
+	"ragie/pkg/client"
 
 	"github.com/beevik/etree"
 	"github.com/spf13/cobra"

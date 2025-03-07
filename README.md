@@ -21,25 +21,25 @@ export RAGIE_API_KEY=your_api_key_here
 ### Import YouTube Data
 
 ```bash
-ragie-cli import youtube path/to/youtube.json [--dry-run] [--delay 2.0]
+ragie import youtube path/to/youtube.json [--dry-run] [--delay 2.0]
 ```
 
 ### Import WordPress Data
 
 ```bash
-ragie-cli import wordpress path/to/wordpress.xml [--dry-run] [--delay 2.0]
+ragie import wordpress path/to/wordpress.xml [--dry-run] [--delay 2.0]
 ```
 
 ### Import ReadmeIO Data
 
 ```bash
-ragie-cli import readmeio path/to/readme.zip [--dry-run] [--delay 2.0]
+ragie import readmeio path/to/readme.zip [--dry-run] [--delay 2.0]
 ```
 
 ### Clear All Documents
 
 ```bash
-ragie-cli clear [--dry-run]
+ragie clear [--dry-run]
 ```
 
 ### Global Flags

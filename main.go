@@ -1,6 +1,6 @@
 package main
 
-import "ragie-cli/cmd"
+import "ragie/cmd"
 
 // Version information (set by build flags)
 var (

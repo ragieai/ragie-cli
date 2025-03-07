@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"ragie-cli/pkg/client"
+	"ragie/pkg/client"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

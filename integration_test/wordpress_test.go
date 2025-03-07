@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"ragie-cli/cmd"
-	"ragie-cli/pkg/client"
+	"ragie/cmd"
+	"ragie/pkg/client"
 
 	"github.com/spf13/viper"
 )
