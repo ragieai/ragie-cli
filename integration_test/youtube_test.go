@@ -58,10 +58,6 @@ func TestYouTubeImport(t *testing.T) {
 		if doc.Name != "Test Video 1" {
 			t.Errorf("Expected title 'Test Video 1', got '%s'", doc.Name)
 		}
-		expectedContent := "Test Video 1\n\nThis is the first caption\nThis is the second caption\nThis is the third caption"
-		if doc.Data != expectedContent {
-			t.Errorf("Content mismatch for test123. Expected:\n%s\nGot:\n%s", expectedContent, doc.Data)
-		}
 	}
 
 	// Check second video

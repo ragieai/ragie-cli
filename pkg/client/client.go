@@ -19,7 +19,6 @@ type Client struct {
 type Document struct {
 	ID       string                 `json:"id"`
 	Name     string                 `json:"name"`
-	Data     string                 `json:"data"`
 	Metadata map[string]interface{} `json:"metadata"`
 }
 
