@@ -74,4 +74,8 @@ export INTEGRATION_TEST=true
 go test ./integration_test -v
 ```
 
-Note: Integration tests will create and delete test documents in your Ragie account. They clean up after themselves, but you may want to use a test account. 
+Note: Integration tests will create and delete test documents in your Ragie account. They clean up after themselves, but you may want to use a test account.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
