@@ -46,9 +46,8 @@ changelog:
 
 brews:
   - repository:
-      owner: ragie
+      owner: ragieai
       name: homebrew-tap
-      branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     commit_author:
       name: goreleaserbot
