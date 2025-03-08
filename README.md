@@ -8,7 +8,7 @@ A command line interface for importing various data formats into Ragie.
 
 ```bash
 # Add the Ragie tap
-brew tap ragie/tap
+brew tap ragieai/tap
 
 # Install ragie-cli
 brew install ragie
