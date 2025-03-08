@@ -4,6 +4,18 @@ A command line interface for importing various data formats into Ragie.
 
 ## Installation
 
+### Using Homebrew (recommended)
+
+```bash
+# Add the Ragie tap
+brew tap ragie/tap
+
+# Install ragie-cli
+brew install ragie
+```
+
+### Manual Installation
+
 1. Make sure you have Go 1.16 or later installed
 2. Clone this repository
 3. Run `go install` in the repository root
