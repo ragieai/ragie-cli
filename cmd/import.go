@@ -27,7 +27,34 @@ type ImportConfig struct {
 var importCmd = &cobra.Command{
 	Use:   "import [type] [file]",
 	Short: "Import data from various sources",
-	Args:  cobra.ExactArgs(2),
+	Long: `Import data from various sources into Ragie.
+
+Available import types:
+
+  youtube
+    Imports YouTube video transcripts and metadata from a JSON file.
+    The JSON file should contain an array of objects with videoId, title, and captions fields.
+    Each video will be imported as a separate document with its transcript and metadata.
+    Example: ragie import youtube path/to/youtube_videos.json
+
+  wordpress
+    Imports WordPress content from an XML export file (WXR format).
+    Imports posts, pages, and their metadata including titles, descriptions, and content.
+    Each post/page will be imported as a separate document.
+    Example: ragie import wordpress path/to/wordpress-export.xml
+
+  readmeio
+    Imports ReadmeIO documentation from a ZIP archive.
+    The ZIP should contain Markdown files with YAML frontmatter.
+    Each Markdown file will be imported as a separate document, preserving metadata.
+    Example: ragie import readmeio path/to/readme-docs.zip
+
+  files
+    Recursively imports files from a directory.
+    All non-empty files will be imported as separate documents.
+    Preserves file metadata including path, extension, size, and modification time.
+    Example: ragie import files path/to/documents/`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		importType := args[0]
 		file := args[1]
