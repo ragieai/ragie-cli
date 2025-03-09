@@ -96,6 +96,9 @@ func (c *Client) ListDocuments(partition string, filter map[string]interface{}, 
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	if partition != "" {
+		req.Header.Set("Partition", partition)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

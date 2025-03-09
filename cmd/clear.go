@@ -12,13 +12,15 @@ import (
 var clearCmd = &cobra.Command{
 	Use:   "clear",
 	Short: "Clear all documents",
+	Long: `Clear all documents from Ragie.
+If a partition is specified, only documents in that partition will be cleared.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Running clear...")
 
 		c := client.NewClient(viper.GetString("api_key"))
 
 		for {
-			resp, err := c.ListDocuments("", map[string]interface{}{}, 0)
+			resp, err := c.ListDocuments(partition, map[string]interface{}{}, 0)
 			if err != nil {
 				return fmt.Errorf("failed to list documents: %v", err)
 			}
