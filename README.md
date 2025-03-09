@@ -48,6 +48,19 @@ ragie import wordpress path/to/wordpress.xml [--dry-run] [--delay 2.0] [--partit
 ragie import readmeio path/to/readme.zip [--dry-run] [--delay 2.0] [--partition your-partition]
 ```
 
+### Import Files from Directory
+
+```bash
+ragie import files path/to/directory [--dry-run] [--delay 2.0] [--partition your-partition]
+```
+
+The files importer will recursively scan the specified directory and import all non-empty files. Each file will be imported as a document with the following metadata:
+- `source_type`: "files"
+- `path`: The relative path from the import directory
+- `extension`: The file extension
+- `size`: The file size in bytes
+- `mod_time`: The file's last modification time
+
 ### Clear All Documents
 
 ```bash

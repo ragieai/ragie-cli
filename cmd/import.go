@@ -46,6 +46,8 @@ var importCmd = &cobra.Command{
 			return ImportWordPress(ragieClient, file, config)
 		case "readmeio":
 			return ImportReadmeIO(ragieClient, file, config)
+		case "files":
+			return ImportFiles(ragieClient, file, config)
 		default:
 			return fmt.Errorf("unknown import type: %s", importType)
 		}
@@ -295,4 +297,77 @@ func ImportReadmeIO(c *client.Client, readmeZip string, config ImportConfig) err
 	}
 
 	return nil
+}
+
+// ImportFiles imports all files from a directory recursively
+func ImportFiles(c *client.Client, directory string, config ImportConfig) error {
+	fmt.Printf("Loading files from directory: %s\n", directory)
+
+	// Check if directory exists
+	info, err := os.Stat(directory)
+	if err != nil {
+		return fmt.Errorf("failed to access directory: %v", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("path is not a directory: %s", directory)
+	}
+
+	// Walk through the directory recursively
+	return filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			fmt.Printf("error accessing path %s: %v\n", path, err)
+			return nil
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
+
+		// Generate a unique external ID based on the relative path
+		relPath, err := filepath.Rel(directory, path)
+		if err != nil {
+			fmt.Printf("error getting relative path for %s: %v\n", path, err)
+			return nil
+		}
+		externalID := filepath.ToSlash(relPath)
+
+		// Skip if document already exists
+		if documentExists(c, config, externalID) {
+			fmt.Printf("warning: skipping file with existing document: %s\n", externalID)
+			return nil
+		}
+
+		// Read file content
+		content, err := os.ReadFile(path)
+		if err != nil {
+			fmt.Printf("error reading file %s: %v\n", path, err)
+			return nil
+		}
+
+		// Skip empty files
+		if len(strings.TrimSpace(string(content))) == 0 {
+			fmt.Printf("warning: skipping empty file: %s\n", path)
+			return nil
+		}
+
+		metadata := map[string]interface{}{
+			"source_type": "files",
+			"path":        externalID,
+			"extension":   filepath.Ext(path),
+			"size":        info.Size(),
+			"mod_time":    info.ModTime().Format(time.RFC3339),
+		}
+
+		err = createDocumentRaw(c, externalID, filepath.Base(path), string(content), metadata, config)
+		if err != nil {
+			fmt.Printf("failed to import file %s: %v\n", path, err)
+		}
+
+		if config.Delay > 0 {
+			time.Sleep(time.Duration(config.Delay * float64(time.Second)))
+		}
+
+		return nil
+	})
 }
