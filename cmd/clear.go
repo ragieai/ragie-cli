@@ -20,7 +20,7 @@ If a partition is specified, only documents in that partition will be cleared.`,
 		c := client.NewClient(viper.GetString("api_key"))
 		opts := client.ListOptions{
 			Filter:    map[string]interface{}{},
-			PageSize:  1,
+			PageSize:  100,
 			Partition: partition,
 		}
 
