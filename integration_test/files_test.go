@@ -72,7 +72,10 @@ func TestFilesImport(t *testing.T) {
 	time.Sleep(1 * time.Second) // Give API some time to process
 
 	// Check first file
-	resp, err := c.ListDocuments("", map[string]interface{}{"external_id": "file1.txt"}, 1)
+	resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": "file1.txt"},
+		PageSize: 1,
+	})
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -92,7 +95,10 @@ func TestFilesImport(t *testing.T) {
 	}
 
 	// Check nested file
-	resp, err = c.ListDocuments("", map[string]interface{}{"external_id": "subdir/file3.json"}, 1)
+	resp, err = c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": "subdir/file3.json"},
+		PageSize: 1,
+	})
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -101,7 +107,10 @@ func TestFilesImport(t *testing.T) {
 	}
 
 	// Verify that empty file was not imported
-	resp, err = c.ListDocuments("", map[string]interface{}{"external_id": "empty.txt"}, 1)
+	resp, err = c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": "empty.txt"},
+		PageSize: 1,
+	})
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -123,7 +132,10 @@ func cleanupFilesTestDocuments(t *testing.T, c *client.Client) {
 	}
 
 	for _, path := range testFiles {
-		resp, err := c.ListDocuments("", map[string]interface{}{"external_id": path}, 1)
+		resp, err := c.ListDocuments(client.ListOptions{
+			Filter:   map[string]interface{}{"external_id": path},
+			PageSize: 1,
+		})
 		if err != nil {
 			t.Logf("Error listing documents for cleanup: %v", err)
 			continue

@@ -18,9 +18,14 @@ If a partition is specified, only documents in that partition will be cleared.`,
 		fmt.Println("Running clear...")
 
 		c := client.NewClient(viper.GetString("api_key"))
+		opts := client.ListOptions{
+			Filter:    map[string]interface{}{},
+			PageSize:  1,
+			Partition: partition,
+		}
 
 		for {
-			resp, err := c.ListDocuments(partition, map[string]interface{}{}, 0)
+			resp, err := c.ListDocuments(opts)
 			if err != nil {
 				return fmt.Errorf("failed to list documents: %v", err)
 			}
@@ -42,6 +47,11 @@ If a partition is specified, only documents in that partition will be cleared.`,
 
 				fmt.Printf("deleted %s\n", doc.ID)
 			}
+
+			if resp.Pagination.NextCursor == "" {
+				break
+			}
+			opts.Cursor = resp.Pagination.NextCursor
 		}
 
 		return nil

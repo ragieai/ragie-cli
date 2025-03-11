@@ -22,9 +22,18 @@ type Document struct {
 	Metadata map[string]interface{} `json:"metadata"`
 }
 
+type ListOptions struct {
+	Filter    map[string]interface{} `json:"filter,omitempty"`
+	PageSize  int                    `json:"page_size,omitempty"`
+	Cursor    string                 `json:"cursor,omitempty"`
+	Partition string                 `json:"partition,omitempty"`
+}
+
 type ListResponse struct {
-	Documents []Document `json:"documents"`
-	NextPage  string     `json:"nextPage"`
+	Documents  []Document `json:"documents"`
+	Pagination struct {
+		NextCursor string `json:"next_cursor"`
+	} `json:"pagination"`
 }
 
 func NewClient(apiKey string) *Client {
@@ -77,17 +86,20 @@ func (c *Client) CreateDocumentRaw(partition string, name string, data string, m
 	return &doc, nil
 }
 
-func (c *Client) ListDocuments(partition string, filter map[string]interface{}, pageSize int) (*ListResponse, error) {
+func (c *Client) ListDocuments(opts ListOptions) (*ListResponse, error) {
 	query := url.Values{}
-	if filter != nil {
-		filterJSON, err := json.Marshal(filter)
+	if opts.Filter != nil {
+		filterJSON, err := json.Marshal(opts.Filter)
 		if err != nil {
 			return nil, err
 		}
 		query.Set("filter", string(filterJSON))
 	}
-	if pageSize > 0 {
-		query.Set("pageSize", fmt.Sprintf("%d", pageSize))
+	if opts.PageSize > 0 {
+		query.Set("page_size", fmt.Sprintf("%d", opts.PageSize))
+	}
+	if opts.Cursor != "" {
+		query.Set("cursor", opts.Cursor)
 	}
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/documents?%s", BaseURL, query.Encode()), nil)
@@ -96,8 +108,8 @@ func (c *Client) ListDocuments(partition string, filter map[string]interface{}, 
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
-	if partition != "" {
-		req.Header.Set("Partition", partition)
+	if opts.Partition != "" {
+		req.Header.Set("Partition", opts.Partition)
 	}
 
 	resp, err := c.httpClient.Do(req)

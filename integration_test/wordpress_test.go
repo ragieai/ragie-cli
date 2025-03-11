@@ -47,7 +47,10 @@ func TestWordPressImport(t *testing.T) {
 	time.Sleep(1 * time.Second) // Give API some time to process
 
 	// Check first post
-	resp, err := c.ListDocuments("", map[string]interface{}{"external_id": "https://example.com/first-post"}, 1)
+	resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": "https://example.com/first-post"},
+		PageSize: 1,
+	})
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -64,7 +67,10 @@ func TestWordPressImport(t *testing.T) {
 	}
 
 	// Check second post
-	resp, err = c.ListDocuments("", map[string]interface{}{"external_id": "https://example.com/second-post"}, 1)
+	resp, err = c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": "https://example.com/second-post"},
+		PageSize: 1,
+	})
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -73,7 +79,10 @@ func TestWordPressImport(t *testing.T) {
 	}
 
 	// Check post without URL (should be imported)
-	resp, err = c.ListDocuments("", map[string]interface{}{"title": "Post Without URL"}, 1)
+	resp, err = c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"title": "Post Without URL"},
+		PageSize: 1,
+	})
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -82,7 +91,10 @@ func TestWordPressImport(t *testing.T) {
 	}
 
 	// Verify that empty post was not imported
-	resp, err = c.ListDocuments("", map[string]interface{}{"title": ""}, 1)
+	resp, err = c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"title": ""},
+		PageSize: 1,
+	})
 	if err != nil {
 		t.Fatalf("Failed to list documents: %v", err)
 	}
@@ -107,7 +119,10 @@ func cleanupWordPressTestDocuments(t *testing.T, c *client.Client) {
 
 	// Clean up by URL
 	for _, url := range testURLs {
-		resp, err := c.ListDocuments("", map[string]interface{}{"external_id": url}, 1)
+		resp, err := c.ListDocuments(client.ListOptions{
+			Filter:   map[string]interface{}{"external_id": url},
+			PageSize: 1,
+		})
 		if err != nil {
 			t.Logf("Error listing documents for cleanup: %v", err)
 			continue
@@ -121,7 +136,10 @@ func cleanupWordPressTestDocuments(t *testing.T, c *client.Client) {
 
 	// Clean up by title (for posts without URL)
 	for _, title := range testTitles {
-		resp, err := c.ListDocuments("", map[string]interface{}{"title": title}, 1)
+		resp, err := c.ListDocuments(client.ListOptions{
+			Filter:   map[string]interface{}{"title": title},
+			PageSize: 1,
+		})
 		if err != nil {
 			t.Logf("Error listing documents for cleanup: %v", err)
 			continue

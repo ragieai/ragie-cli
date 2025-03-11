@@ -86,11 +86,13 @@ func init() {
 }
 
 func documentExists(c *client.Client, config ImportConfig, externalID string) bool {
-	filter := map[string]interface{}{
-		"external_id": externalID,
+	opts := client.ListOptions{
+		Filter:    map[string]interface{}{"external_id": externalID},
+		PageSize:  1,
+		Partition: config.Partition,
 	}
 
-	resp, err := c.ListDocuments(config.Partition, filter, 1)
+	resp, err := c.ListDocuments(opts)
 	if err != nil {
 		return false
 	}
