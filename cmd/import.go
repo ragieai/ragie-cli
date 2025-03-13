@@ -414,7 +414,7 @@ func ImportFiles(c *client.Client, directory string, config ImportConfig) error 
 			"mod_time":    info.ModTime().Format(time.RFC3339),
 		}
 
-		err = createDocumentRaw(c, externalID, filepath.Base(path), string(content), metadata, config)
+		err = createDocument(c, externalID, filepath.Base(path), content, filepath.Base(path), metadata, config)
 		if err != nil {
 			fmt.Printf("failed to import file %s: %v\n", path, err)
 		}
