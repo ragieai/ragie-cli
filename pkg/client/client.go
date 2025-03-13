@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 )
@@ -151,4 +152,78 @@ func (c *Client) DeleteDocument(id string) error {
 	}
 
 	return nil
+}
+
+// CreateDocument uploads a file using multipart form data
+func (c *Client) CreateDocument(partition string, name string, fileData []byte, fileName string, metadata map[string]interface{}) (*Document, error) {
+	// Create a new multipart writer
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Add the file
+	part, err := writer.CreateFormFile("file", fileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form file: %v", err)
+	}
+	if _, err := part.Write(fileData); err != nil {
+		return nil, fmt.Errorf("failed to write file data: %v", err)
+	}
+
+	// Add the name field
+	if err := writer.WriteField("name", name); err != nil {
+		return nil, fmt.Errorf("failed to write name field: %v", err)
+	}
+
+	// Add the partition field if provided
+	if partition != "" {
+		if err := writer.WriteField("partition", partition); err != nil {
+			return nil, fmt.Errorf("failed to write partition field: %v", err)
+		}
+	}
+
+	// Add metadata as JSON
+	if metadata != nil {
+		metadataJSON, err := json.Marshal(metadata)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal metadata: %v", err)
+		}
+		if err := writer.WriteField("metadata", string(metadataJSON)); err != nil {
+			return nil, fmt.Errorf("failed to write metadata field: %v", err)
+		}
+	}
+
+	// Close the writer
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close writer: %v", err)
+	}
+
+	// Create the request
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/documents", BaseURL), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Accept", "application/json")
+
+	// Send the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %s - %s", resp.Status, string(body))
+	}
+
+	// Parse the response
+	var doc Document
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return nil, err
+	}
+
+	return &doc, nil
 }

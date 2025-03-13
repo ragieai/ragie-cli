@@ -53,7 +53,13 @@ Available import types:
     Recursively imports files from a directory.
     All non-empty files will be imported as separate documents.
     Preserves file metadata including path, extension, size, and modification time.
-    Example: ragie import files path/to/documents/`,
+    Example: ragie import files path/to/documents/
+
+  zip
+    Imports all files from a zip archive without extracting them.
+    Each file will be imported as a separate document.
+    Preserves file metadata including path, extension, size, and modification time.
+    Example: ragie import zip path/to/documents.zip`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		importType := args[0]
@@ -75,6 +81,8 @@ Available import types:
 			return ImportReadmeIO(ragieClient, file, config)
 		case "files":
 			return ImportFiles(ragieClient, file, config)
+		case "zip":
+			return ImportZip(ragieClient, file, config)
 		default:
 			return fmt.Errorf("unknown import type: %s", importType)
 		}
@@ -108,6 +116,24 @@ func createDocumentRaw(c *client.Client, externalID string, name, data string, m
 	metadata["external_id"] = externalID
 
 	doc, err := c.CreateDocumentRaw(config.Partition, name, data, metadata)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("saved: %s\n", doc.ID)
+	return nil
+}
+
+// createDocument uploads a file using multipart form data
+func createDocument(c *client.Client, externalID string, name string, fileData []byte, fileName string, metadata map[string]interface{}, config ImportConfig) error {
+	if config.DryRun {
+		fmt.Printf("would save document: %s\n", name)
+		return nil
+	}
+
+	metadata["external_id"] = externalID
+
+	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata)
 	if err != nil {
 		return err
 	}
@@ -399,4 +425,77 @@ func ImportFiles(c *client.Client, directory string, config ImportConfig) error 
 
 		return nil
 	})
+}
+
+// ImportZip imports all files from a zip archive without extracting them
+func ImportZip(c *client.Client, zipFile string, config ImportConfig) error {
+	fmt.Printf("Loading files from zip archive: %s\n", zipFile)
+
+	// Open the zip file
+	reader, err := zip.OpenReader(zipFile)
+	if err != nil {
+		return fmt.Errorf("failed to open ZIP file: %v", err)
+	}
+	defer reader.Close()
+
+	// Process each file in the zip
+	for _, file := range reader.File {
+		// Skip directories
+		if file.FileInfo().IsDir() {
+			continue
+		}
+
+		// Generate a unique external ID based on the path within the zip
+		externalID := filepath.ToSlash(file.Name)
+
+		// Skip if document already exists
+		if documentExists(c, config, externalID) {
+			fmt.Printf("warning: skipping file with existing document: %s\n", externalID)
+			continue
+		}
+
+		// Open the file within the zip
+		rc, err := file.Open()
+		if err != nil {
+			fmt.Printf("failed to open file in zip %s: %v\n", file.Name, err)
+			continue
+		}
+
+		// Read file content
+		content, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			fmt.Printf("failed to read file in zip %s: %v\n", file.Name, err)
+			continue
+		}
+
+		// Skip empty files
+		if len(strings.TrimSpace(string(content))) == 0 {
+			fmt.Printf("warning: skipping empty file: %s\n", file.Name)
+			continue
+		}
+
+		// Create metadata for the file
+		metadata := map[string]interface{}{
+			"source_type":     "zip",
+			"path":            externalID,
+			"extension":       filepath.Ext(file.Name),
+			"size":            file.UncompressedSize64,
+			"mod_time":        file.Modified.Format(time.RFC3339),
+			"compressed_size": file.CompressedSize64,
+			"zip_source":      filepath.Base(zipFile),
+		}
+
+		// Create the document using multipart form data
+		err = createDocument(c, externalID, filepath.Base(file.Name), content, file.Name, metadata, config)
+		if err != nil {
+			fmt.Printf("failed to import file %s: %v\n", file.Name, err)
+		}
+
+		if config.Delay > 0 {
+			time.Sleep(time.Duration(config.Delay * float64(time.Second)))
+		}
+	}
+
+	return nil
 }

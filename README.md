@@ -61,6 +61,21 @@ The files importer will recursively scan the specified directory and import all 
 - `size`: The file size in bytes
 - `mod_time`: The file's last modification time
 
+### Import Files from ZIP Archive
+
+```bash
+ragie import zip path/to/archive.zip [--dry-run] [--delay 2.0] [--partition your-partition]
+```
+
+The zip importer will process all files within the ZIP archive without extracting them first. Each file will be imported as a document with the following metadata:
+- `source_type`: "zip"
+- `path`: The path within the ZIP archive
+- `extension`: The file extension
+- `size`: The uncompressed file size in bytes
+- `compressed_size`: The compressed file size in bytes
+- `mod_time`: The file's last modification time
+- `zip_source`: The name of the source ZIP file
+
 ### Clear All Documents
 
 ```bash
