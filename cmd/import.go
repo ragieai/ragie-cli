@@ -51,10 +51,11 @@ Available import types:
     Example: ragie import readmeio path/to/readme-docs.zip
 
   files
-    Recursively imports files from a directory.
+    Imports files from a directory recursively or a file.
     All non-empty files will be imported as separate documents.
     Preserves file metadata including path, extension, size, and modification time.
     Example: ragie import files path/to/documents/
+    Example: ragie import files path/to/file.txt
 
   zip
     Imports all files from a zip archive without extracting them.
@@ -363,77 +364,88 @@ func ImportReadmeIO(c *client.Client, readmeZip string, config ImportConfig) err
 	return nil
 }
 
-// ImportFiles imports all files from a directory recursively
-func ImportFiles(c *client.Client, directory string, config ImportConfig) error {
-	fmt.Printf("Loading files from directory: %s\n", directory)
-
-	// Check if directory exists
-	info, err := os.Stat(directory)
+// ImportFiles imports a file or all files from a directory recursively
+func ImportFiles(c *client.Client, path string, config ImportConfig) error {
+	// Check if path exists
+	info, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("failed to access directory: %v", err)
+		return fmt.Errorf("failed to access path: %v", err)
 	}
+
+	// Handle file case
 	if !info.IsDir() {
-		return fmt.Errorf("path is not a directory: %s", directory)
+		fmt.Printf("Loading file: %s\n", path)
+		return importFile(c, path, path, info, config)
 	}
+
+	// Handle directory case
+	fmt.Printf("Loading files from directory: %s\n", path)
 
 	// Walk through the directory recursively
-	return filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(path, func(filePath string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
-			fmt.Printf("error accessing path %s: %v\n", path, err)
+			fmt.Printf("error accessing path %s: %v\n", filePath, err)
 			return nil
 		}
 
 		// Skip directories
-		if info.IsDir() {
+		if fileInfo.IsDir() {
 			return nil
 		}
 
-		// Generate a unique external ID based on the relative path
-		relPath, err := filepath.Rel(directory, path)
+		// Process the file
+		relPath, err := filepath.Rel(path, filePath)
 		if err != nil {
-			fmt.Printf("error getting relative path for %s: %v\n", path, err)
-			return nil
-		}
-		externalID := filepath.ToSlash(relPath)
-
-		// Skip if document already exists
-		if documentExists(c, config, externalID) {
-			fmt.Printf("warning: skipping file with existing document: %s\n", externalID)
+			fmt.Printf("error getting relative path for %s: %v\n", filePath, err)
 			return nil
 		}
 
-		// Read file content
-		content, err := os.ReadFile(path)
-		if err != nil {
-			fmt.Printf("error reading file %s: %v\n", path, err)
-			return nil
-		}
-
-		// Skip empty files
-		if len(strings.TrimSpace(string(content))) == 0 {
-			fmt.Printf("warning: skipping empty file: %s\n", path)
-			return nil
-		}
-
-		metadata := map[string]interface{}{
-			"source_type": "files",
-			"path":        externalID,
-			"extension":   filepath.Ext(path),
-			"size":        info.Size(),
-			"mod_time":    info.ModTime().Format(time.RFC3339),
-		}
-
-		err = createDocument(c, externalID, filepath.Base(path), content, filepath.Base(path), metadata, config)
-		if err != nil {
-			fmt.Printf("failed to import file %s: %v\n", path, err)
-		}
-
-		if config.Delay > 0 {
-			time.Sleep(time.Duration(config.Delay * float64(time.Second)))
-		}
-
-		return nil
+		return importFile(c, filePath, relPath, fileInfo, config)
 	})
+}
+
+// importFile handles the import of a file
+func importFile(c *client.Client, filePath string, relPath string, fileInfo os.FileInfo, config ImportConfig) error {
+	// Generate a unique external ID based on the relative path
+	externalID := filepath.ToSlash(relPath)
+
+	// Skip if document already exists
+	if documentExists(c, config, externalID) {
+		fmt.Printf("warning: skipping file with existing document: %s\n", externalID)
+		return nil
+	}
+
+	// Read file content
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Printf("error reading file %s: %v\n", filePath, err)
+		return nil
+	}
+
+	// Skip empty files
+	if len(strings.TrimSpace(string(content))) == 0 {
+		fmt.Printf("warning: skipping empty file: %s\n", filePath)
+		return nil
+	}
+
+	metadata := map[string]interface{}{
+		"source_type": "files",
+		"path":        externalID,
+		"extension":   filepath.Ext(filePath),
+		"size":        fileInfo.Size(),
+		"mod_time":    fileInfo.ModTime().Format(time.RFC3339),
+	}
+
+	err = createDocument(c, externalID, filepath.Base(filePath), content, filepath.Base(filePath), metadata, config)
+	if err != nil {
+		fmt.Printf("failed to import file %s: %v\n", filePath, err)
+	}
+
+	if config.Delay > 0 {
+		time.Sleep(time.Duration(config.Delay * float64(time.Second)))
+	}
+
+	return nil
 }
 
 // ImportZip imports all files from a zip archive without extracting them
