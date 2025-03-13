@@ -46,7 +46,8 @@ func TestZipImport(t *testing.T) {
 	t.Log("Running zip import...")
 	config := cmd.ImportConfig{
 		DryRun: false,
-		Delay:  0, // No delay for tests
+		Delay:  0,      // No delay for tests
+		Mode:   "fast", // Test with fast mode
 	}
 	err := cmd.ImportZip(c, zipPath, config)
 	if err != nil {

@@ -60,7 +60,8 @@ func TestFilesImport(t *testing.T) {
 	t.Log("Running files import...")
 	config := cmd.ImportConfig{
 		DryRun: false,
-		Delay:  0, // No delay for tests
+		Delay:  0,        // No delay for tests
+		Mode:   "hi_res", // Test with hi_res mode
 	}
 	err := cmd.ImportFiles(c, testDir, config)
 	if err != nil {

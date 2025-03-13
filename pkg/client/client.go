@@ -155,7 +155,8 @@ func (c *Client) DeleteDocument(id string) error {
 }
 
 // CreateDocument uploads a file using multipart form data
-func (c *Client) CreateDocument(partition string, name string, fileData []byte, fileName string, metadata map[string]interface{}) (*Document, error) {
+// The mode parameter can be set to "hi_res" for higher quality processing or "fast" for faster processing
+func (c *Client) CreateDocument(partition string, name string, fileData []byte, fileName string, metadata map[string]interface{}, mode string) (*Document, error) {
 	// Create a new multipart writer
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -178,6 +179,13 @@ func (c *Client) CreateDocument(partition string, name string, fileData []byte, 
 	if partition != "" {
 		if err := writer.WriteField("partition", partition); err != nil {
 			return nil, fmt.Errorf("failed to write partition field: %v", err)
+		}
+	}
+
+	// Add the mode field if provided
+	if mode != "" {
+		if err := writer.WriteField("mode", mode); err != nil {
+			return nil, fmt.Errorf("failed to write mode field: %v", err)
 		}
 	}
 

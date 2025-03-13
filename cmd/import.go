@@ -22,6 +22,7 @@ type ImportConfig struct {
 	DryRun    bool
 	Delay     float64
 	Partition string
+	Mode      string
 }
 
 var importCmd = &cobra.Command{
@@ -59,7 +60,13 @@ Available import types:
     Imports all files from a zip archive without extracting them.
     Each file will be imported as a separate document.
     Preserves file metadata including path, extension, size, and modification time.
-    Example: ragie import zip path/to/documents.zip`,
+    Example: ragie import zip path/to/documents.zip
+
+Options:
+  --mode string    Processing mode: 'hi_res' (high resolution) or 'fast' (default)
+                   hi_res: Higher quality processing with better accuracy
+                   fast: Faster processing with slightly lower accuracy
+                   Note: mode is only supported for 'files' and 'zip' import types`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		importType := args[0]
@@ -70,6 +77,7 @@ Available import types:
 			DryRun:    dryRun,
 			Delay:     delay,
 			Partition: partition,
+			Mode:      mode,
 		}
 
 		switch importType {
@@ -91,6 +99,7 @@ Available import types:
 
 func init() {
 	rootCmd.AddCommand(importCmd)
+	importCmd.Flags().StringVar(&mode, "mode", "", "Processing mode: 'hi_res' (high resolution) or 'fast' (default). Only supported for 'files' and 'zip' import types (file upload API).")
 }
 
 func documentExists(c *client.Client, config ImportConfig, externalID string) bool {
@@ -133,7 +142,7 @@ func createDocument(c *client.Client, externalID string, name string, fileData [
 
 	metadata["external_id"] = externalID
 
-	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata)
+	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata, config.Mode)
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ var (
 	dryRun    bool
 	delay     float64
 	partition string
+	mode      string
 )
 
 var rootCmd = &cobra.Command{
