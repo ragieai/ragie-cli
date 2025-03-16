@@ -4,7 +4,7 @@ A command line interface for importing various data formats into Ragie.
 
 ## Installation
 
-### Using Homebrew (recommended)
+### OSX using homebrew (recommended)
 
 ```bash
 # Add the Ragie tap
@@ -12,6 +12,18 @@ brew tap ragieai/tap
 
 # Install ragie-cli
 brew install ragie
+```
+
+### Linux using apt
+
+```bash
+# Add repository
+curl -1sLf \
+  'https://dl.cloudsmith.io/public/ragieai/ragie-repo/setup.deb.sh' \
+  | sudo -E bash
+
+# Install ragie-cli
+sudo apt install ragie
 ```
 
 ### Manual Installation
