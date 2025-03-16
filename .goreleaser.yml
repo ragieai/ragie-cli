@@ -67,3 +67,35 @@ cloudsmiths:
     distributions:
       deb:
         - "ubuntu/noble"
+
+# Configuration for creating .deb and .rpm packages
+nfpms:
+  - id: ragie
+    package_name: "{{ .ProjectName }}"
+    vendor: Ragie Corp
+    homepage: "https://github.com/ragie/ragie-cli"
+    maintainer: "Ragie Corp <support@ragie.ai>"
+    description: "A command line interface for importing various data formats into Ragie"
+    license: MIT
+    
+    # Formats to be generated
+    formats:
+      - apk
+      - deb
+      - rpm
+    
+    # Contents to add to the package
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/ragie/copyright
+        
+    # Scripts to run at different stages
+    scripts:
+      postinstall: "scripts/postinstall.sh"
+      preremove: "scripts/preremove.sh"
+
+    # Debian/Ubuntu specific
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+        - changelog-file-missing-in-native-package
