@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -105,6 +106,133 @@ func TestWordPressImport(t *testing.T) {
 	// Clean up test documents
 	t.Log("Cleaning up test documents...")
 	cleanupWordPressTestDocuments(t, c)
+}
+
+func TestWordPressImportForce(t *testing.T) {
+	// Skip if not running integration tests
+	if os.Getenv("INTEGRATION_TEST") != "true" {
+		t.Skip("Skipping integration test. Set INTEGRATION_TEST=true to run")
+	}
+
+	// Check for API key
+	apiKey := os.Getenv("RAGIE_API_KEY")
+	if apiKey == "" {
+		t.Fatal("RAGIE_API_KEY environment variable must be set")
+	}
+
+	// Initialize the client
+	c := client.NewClient(apiKey)
+	viper.Set("api_key", apiKey)
+
+	testURL := "https://example.com/force-test-post"
+
+	// Clean up any existing test documents with this external ID
+	if resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testURL},
+		PageSize: 100,
+	}); err == nil {
+		for _, doc := range resp.Documents {
+			c.DeleteDocument(doc.ID)
+		}
+	}
+
+	// Create temporary WordPress XML file
+	tempFile := filepath.Join(t.TempDir(), "wordpress_force_test.xml")
+	testXML := `<?xml version="1.0" encoding="UTF-8"?>
+<root>
+	<post>
+		<url>` + testURL + `</url>
+		<title>Force Test Post</title>
+		<description>Test description</description>
+		<content>This is test content for force flag testing</content>
+	</post>
+</root>`
+
+	if err := os.WriteFile(tempFile, []byte(testXML), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// First import without force
+	t.Log("Running first WordPress import...")
+	config := cmd.ImportConfig{
+		DryRun: false,
+		Delay:  0,
+		Force:  false,
+	}
+
+	err := cmd.ImportWordPress(c, tempFile, config)
+	if err != nil {
+		t.Fatalf("Failed to import WordPress data: %v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	// Verify document was created
+	resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testURL},
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to list documents: %v", err)
+	}
+	if len(resp.Documents) != 1 {
+		t.Fatalf("Expected 1 document, got %d", len(resp.Documents))
+	}
+
+	// Second import without force - should skip
+	t.Log("Running second WordPress import without force...")
+	err = cmd.ImportWordPress(c, tempFile, config)
+	if err != nil {
+		t.Fatalf("Failed to import WordPress data: %v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	// Verify still only one document
+	resp, err = c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testURL},
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to list documents: %v", err)
+	}
+	if len(resp.Documents) != 1 {
+		t.Errorf("Expected 1 document after second import without force, got %d", len(resp.Documents))
+	}
+
+	// Third import with force - should create duplicate
+	t.Log("Running third WordPress import with force...")
+	config.Force = true
+	err = cmd.ImportWordPress(c, tempFile, config)
+	if err != nil {
+		t.Fatalf("Failed to import WordPress data with force: %v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	// Verify now two documents exist
+	resp, err = c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testURL},
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to list documents: %v", err)
+	}
+	if len(resp.Documents) != 2 {
+		t.Errorf("Expected 2 documents after force import, got %d", len(resp.Documents))
+	}
+
+	// Clean up test documents
+	if resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testURL},
+		PageSize: 100,
+	}); err == nil {
+		for _, doc := range resp.Documents {
+			if err := c.DeleteDocument(doc.ID); err != nil {
+				t.Logf("Error deleting document %s: %v", doc.ID, err)
+			}
+		}
+	}
 }
 
 func cleanupWordPressTestDocuments(t *testing.T, c *client.Client) {
