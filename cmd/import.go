@@ -144,29 +144,7 @@ func createDocument(c *client.Client, externalID string, name string, fileData [
 
 	metadata["external_id"] = externalID
 
-	var mode *client.Mode
-	switch config.Mode {
-	case "all":
-		mode = &client.Mode{
-			Static: "hi_res",
-			Audio:  true,
-			Video:  "audio_video",
-		}
-	case "hi_res":
-		mode = &client.Mode{
-			Static: "hi_res",
-		}
-	case "fast":
-		mode = &client.Mode{
-			Static: "fast",
-		}
-	case "":
-		mode = nil
-	default:
-		return fmt.Errorf("unknown mode: %s", config.Mode)
-	}
-
-	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata, mode)
+	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata, config.Mode)
 	if err != nil {
 		return err
 	}
