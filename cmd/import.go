@@ -64,9 +64,10 @@ Available import types:
     Example: ragie import zip path/to/documents.zip
 
 Options:
-  --mode string    Processing mode: 'hi_res' (high resolution) or 'fast' (default)
+  --mode string    Processing mode: 'hi_res' (high resolution), 'fast' (default), or 'all'
                    hi_res: Higher quality processing with better accuracy
                    fast: Faster processing with slightly lower accuracy
+                   all: Highest quality processing for all media types
                    Note: mode is only supported for 'files' and 'zip' import types`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -100,7 +101,7 @@ Options:
 
 func init() {
 	rootCmd.AddCommand(importCmd)
-	importCmd.Flags().StringVar(&mode, "mode", "", "Processing mode: 'hi_res' (high resolution) or 'fast' (default). Only supported for 'files' and 'zip' import types (file upload API).")
+	importCmd.Flags().StringVar(&mode, "mode", "", "Processing mode: 'hi_res' (high resolution), 'fast' (default), or 'all' (highest quality). Only supported for 'files' and 'zip' import types (file upload API).")
 }
 
 func documentExists(c *client.Client, config ImportConfig, externalID string) bool {
@@ -143,7 +144,29 @@ func createDocument(c *client.Client, externalID string, name string, fileData [
 
 	metadata["external_id"] = externalID
 
-	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata, config.Mode)
+	var mode *client.Mode
+	switch config.Mode {
+	case "all":
+		mode = &client.Mode{
+			Static: "hi_res",
+			Audio:  true,
+			Video:  "audio_video",
+		}
+	case "hi_res":
+		mode = &client.Mode{
+			Static: "hi_res",
+		}
+	case "fast":
+		mode = &client.Mode{
+			Static: "fast",
+		}
+	case "":
+		mode = nil
+	default:
+		return fmt.Errorf("unknown mode: %s", config.Mode)
+	}
+
+	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata, mode)
 	if err != nil {
 		return err
 	}

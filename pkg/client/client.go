@@ -17,6 +17,12 @@ type Client struct {
 	httpClient *http.Client
 }
 
+type Mode struct {
+	Static string `json:"static,omitempty"`
+	Audio  bool   `json:"audio,omitempty"`
+	Video  string `json:"video,omitempty"`
+}
+
 type Document struct {
 	ID       string                 `json:"id"`
 	Name     string                 `json:"name"`
@@ -156,7 +162,7 @@ func (c *Client) DeleteDocument(id string) error {
 
 // CreateDocument uploads a file using multipart form data
 // The mode parameter can be set to "hi_res" for higher quality processing or "fast" for faster processing
-func (c *Client) CreateDocument(partition string, name string, fileData []byte, fileName string, metadata map[string]interface{}, mode string) (*Document, error) {
+func (c *Client) CreateDocument(partition string, name string, fileData []byte, fileName string, metadata map[string]interface{}, mode *Mode) (*Document, error) {
 	// Create a new multipart writer
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -183,8 +189,12 @@ func (c *Client) CreateDocument(partition string, name string, fileData []byte, 
 	}
 
 	// Add the mode field if provided
-	if mode != "" {
-		if err := writer.WriteField("mode", mode); err != nil {
+	if mode != nil {
+		modeJSON, err := json.Marshal(mode)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal mode: %v", err)
+		}
+		if err := writer.WriteField("mode", string(modeJSON)); err != nil {
 			return nil, fmt.Errorf("failed to write mode field: %v", err)
 		}
 	}
