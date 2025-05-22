@@ -14,6 +14,7 @@ var (
 	delay     float64
 	partition string
 	mode      string
+	force     bool
 )
 
 var rootCmd = &cobra.Command{

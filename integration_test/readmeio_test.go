@@ -1,7 +1,9 @@
 package integration_test
 
 import (
+	"archive/zip"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -101,6 +103,164 @@ func TestReadmeIOImport(t *testing.T) {
 	// Clean up test documents
 	t.Log("Cleaning up test documents...")
 	cleanupReadmeIOTestDocuments(t, c)
+}
+
+func TestReadmeIOImportForce(t *testing.T) {
+	// Skip if not running integration tests
+	if os.Getenv("INTEGRATION_TEST") != "true" {
+		t.Skip("Skipping integration test. Set INTEGRATION_TEST=true to run")
+	}
+
+	// Check for API key
+	apiKey := os.Getenv("RAGIE_API_KEY")
+	if apiKey == "" {
+		t.Fatal("RAGIE_API_KEY environment variable must be set")
+	}
+
+	// Initialize the client
+	c := client.NewClient(apiKey)
+	viper.Set("api_key", apiKey)
+
+	testSlug := "force-test-doc"
+
+	// Clean up any existing test documents with this external ID
+	if resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testSlug},
+		PageSize: 100,
+	}); err == nil {
+		for _, doc := range resp.Documents {
+			c.DeleteDocument(doc.ID)
+		}
+	}
+
+	// Create temporary README.io ZIP file
+	tempDir := t.TempDir()
+	tempZip := filepath.Join(tempDir, "readme_force_test.zip")
+
+	// Create markdown file content
+	markdownContent := `---
+slug: ` + testSlug + `
+title: Force Test Document
+---
+
+# Force Test Document
+
+This is test content for force flag testing.`
+
+	// Create ZIP file
+	err := createReadmeTestZipFile(tempZip, map[string]string{
+		"test.md": markdownContent,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create test ZIP: %v", err)
+	}
+
+	// First import without force
+	t.Log("Running first ReadmeIO import...")
+	config := cmd.ImportConfig{
+		DryRun: false,
+		Delay:  0,
+		Force:  false,
+	}
+
+	err = cmd.ImportReadmeIO(c, tempZip, config)
+	if err != nil {
+		t.Fatalf("Failed to import ReadmeIO data: %v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	// Verify document was created
+	resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testSlug},
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to list documents: %v", err)
+	}
+	if len(resp.Documents) != 1 {
+		t.Fatalf("Expected 1 document, got %d", len(resp.Documents))
+	}
+
+	// Second import without force - should skip
+	t.Log("Running second ReadmeIO import without force...")
+	err = cmd.ImportReadmeIO(c, tempZip, config)
+	if err != nil {
+		t.Fatalf("Failed to import ReadmeIO data: %v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	// Verify still only one document
+	resp, err = c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testSlug},
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to list documents: %v", err)
+	}
+	if len(resp.Documents) != 1 {
+		t.Errorf("Expected 1 document after second import without force, got %d", len(resp.Documents))
+	}
+
+	// Third import with force - should create duplicate
+	t.Log("Running third ReadmeIO import with force...")
+	config.Force = true
+	err = cmd.ImportReadmeIO(c, tempZip, config)
+	if err != nil {
+		t.Fatalf("Failed to import ReadmeIO data with force: %v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	// Verify now two documents exist
+	resp, err = c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testSlug},
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to list documents: %v", err)
+	}
+	if len(resp.Documents) != 2 {
+		t.Errorf("Expected 2 documents after force import, got %d", len(resp.Documents))
+	}
+
+	// Clean up test documents
+	if resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testSlug},
+		PageSize: 100,
+	}); err == nil {
+		for _, doc := range resp.Documents {
+			if err := c.DeleteDocument(doc.ID); err != nil {
+				t.Logf("Error deleting document %s: %v", doc.ID, err)
+			}
+		}
+	}
+}
+
+// createReadmeTestZipFile creates a simple ZIP file with the given content for testing
+func createReadmeTestZipFile(filename string, files map[string]string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	zipWriter := zip.NewWriter(file)
+	defer zipWriter.Close()
+
+	for name, content := range files {
+		writer, err := zipWriter.Create(name)
+		if err != nil {
+			return err
+		}
+		_, err = writer.Write([]byte(content))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func cleanupReadmeIOTestDocuments(t *testing.T, c *client.Client) {

@@ -23,6 +23,7 @@ type ImportConfig struct {
 	Delay     float64
 	Partition string
 	Mode      string
+	Force     bool
 }
 
 var importCmd = &cobra.Command{
@@ -80,6 +81,7 @@ Options:
 			Delay:     delay,
 			Partition: partition,
 			Mode:      mode,
+			Force:     force,
 		}
 
 		switch importType {
@@ -102,6 +104,7 @@ Options:
 func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().StringVar(&mode, "mode", "", "Processing mode: 'hi_res' (high resolution), 'fast' (default), or 'all' (highest quality). Only supported for 'files' and 'zip' import types (file upload API).")
+	importCmd.Flags().BoolVar(&force, "force", false, "Force import even if documents with the same external ID already exist (creates a new document with the same external ID)")
 }
 
 func documentExists(c *client.Client, config ImportConfig, externalID string) bool {
@@ -174,7 +177,7 @@ func ImportYouTube(c *client.Client, youtubeFile string, config ImportConfig) er
 			continue
 		}
 
-		if documentExists(c, config, videoID) {
+		if !config.Force && documentExists(c, config, videoID) {
 			fmt.Printf("warning: skipping video with existing document: %s\n", videoID)
 			continue
 		}
@@ -241,7 +244,7 @@ func ImportWordPress(c *client.Client, wordpressFile string, config ImportConfig
 		}
 		metadata["url"] = url
 
-		if documentExists(c, config, url) {
+		if !config.Force && documentExists(c, config, url) {
 			fmt.Printf("warning: skipping post with existing document: %s\n", url)
 			continue
 		}
@@ -342,7 +345,7 @@ func ImportReadmeIO(c *client.Client, readmeZip string, config ImportConfig) err
 
 		metadata["readmeId"] = docID
 
-		if documentExists(c, config, docID) {
+		if !config.Force && documentExists(c, config, docID) {
 			fmt.Printf("warning: skipping document with existing id: %s\n", docID)
 			continue
 		}
@@ -411,7 +414,7 @@ func importFile(c *client.Client, filePath string, relPath string, fileInfo os.F
 	externalID := filepath.ToSlash(relPath)
 
 	// Skip if document already exists
-	if documentExists(c, config, externalID) {
+	if !config.Force && documentExists(c, config, externalID) {
 		fmt.Printf("warning: skipping file with existing document: %s\n", externalID)
 		return nil
 	}
@@ -471,7 +474,7 @@ func ImportZip(c *client.Client, zipFile string, config ImportConfig) error {
 		externalID := filepath.ToSlash(file.Name)
 
 		// Skip if document already exists
-		if documentExists(c, config, externalID) {
+		if !config.Force && documentExists(c, config, externalID) {
 			fmt.Printf("warning: skipping file with existing document: %s\n", externalID)
 			continue
 		}
