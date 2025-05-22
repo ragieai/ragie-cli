@@ -244,6 +244,118 @@ func TestFilesImportForce(t *testing.T) {
 	}
 }
 
+func TestFilesImportReplace(t *testing.T) {
+	// Skip if not running integration tests
+	if os.Getenv("INTEGRATION_TEST") != "true" {
+		t.Skip("Skipping integration test. Set INTEGRATION_TEST=true to run")
+	}
+
+	// Check for API key
+	apiKey := os.Getenv("RAGIE_API_KEY")
+	if apiKey == "" {
+		t.Fatal("RAGIE_API_KEY environment variable must be set")
+	}
+
+	// Initialize the client
+	c := client.NewClient(apiKey)
+	viper.Set("api_key", apiKey)
+
+	testFile := "replace_test.txt"
+	testContent1 := "This is the first version of the test file"
+	testContent2 := "This is the second version of the test file"
+
+	// Clean up any existing test documents with this external ID
+	if resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testFile},
+		PageSize: 100,
+	}); err == nil {
+		for _, doc := range resp.Documents {
+			c.DeleteDocument(doc.ID)
+		}
+	}
+
+	// Create temporary test directory and file with first content
+	tempDir := t.TempDir()
+	tempFilePath := filepath.Join(tempDir, testFile)
+	if err := os.WriteFile(tempFilePath, []byte(testContent1), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// First import - create initial document
+	t.Log("Running first files import...")
+	config := cmd.ImportConfig{
+		DryRun:  false,
+		Delay:   0,
+		Force:   false,
+		Replace: false,
+		Mode:    "fast",
+	}
+
+	err := cmd.ImportFiles(c, tempDir, config)
+	if err != nil {
+		t.Fatalf("Failed to import files: %v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	// Verify document was created
+	resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testFile},
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to list documents: %v", err)
+	}
+	if len(resp.Documents) != 1 {
+		t.Fatalf("Expected 1 document, got %d", len(resp.Documents))
+	}
+	firstDocID := resp.Documents[0].ID
+
+	// Update file content for replacement
+	if err := os.WriteFile(tempFilePath, []byte(testContent2), 0644); err != nil {
+		t.Fatalf("Failed to update test file: %v", err)
+	}
+
+	// Second import with replace - should replace the existing document
+	t.Log("Running second files import with replace...")
+	config.Replace = true
+	err = cmd.ImportFiles(c, tempDir, config)
+	if err != nil {
+		t.Fatalf("Failed to import files with replace: %v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	// Verify still only one document but with different ID (replaced)
+	resp, err = c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testFile},
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to list documents: %v", err)
+	}
+	if len(resp.Documents) != 1 {
+		t.Errorf("Expected 1 document after replace, got %d", len(resp.Documents))
+	}
+
+	// Verify that the document ID changed (old one was deleted, new one created)
+	if len(resp.Documents) > 0 && resp.Documents[0].ID == firstDocID {
+		t.Errorf("Document ID should have changed after replace, but got same ID: %s", firstDocID)
+	}
+
+	// Clean up test documents
+	if resp, err := c.ListDocuments(client.ListOptions{
+		Filter:   map[string]interface{}{"external_id": testFile},
+		PageSize: 100,
+	}); err == nil {
+		for _, doc := range resp.Documents {
+			if err := c.DeleteDocument(doc.ID); err != nil {
+				t.Logf("Error deleting document %s: %v", doc.ID, err)
+			}
+		}
+	}
+}
+
 func cleanupFilesTestDocuments(t *testing.T, c *client.Client) {
 	testFiles := []string{
 		"file1.txt",

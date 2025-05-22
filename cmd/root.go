@@ -15,6 +15,7 @@ var (
 	partition string
 	mode      string
 	force     bool
+	replace   bool
 )
 
 var rootCmd = &cobra.Command{
