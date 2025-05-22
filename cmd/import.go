@@ -24,6 +24,7 @@ type ImportConfig struct {
 	Partition string
 	Mode      string
 	Force     bool
+	Replace   bool
 }
 
 var importCmd = &cobra.Command{
@@ -75,6 +76,11 @@ Options:
 		importType := args[0]
 		file := args[1]
 
+		// Validate that --force and --replace are mutually exclusive
+		if force && replace {
+			return fmt.Errorf("--force and --replace flags cannot be used together")
+		}
+
 		ragieClient := client.NewClient(viper.GetString("api_key"))
 		config := ImportConfig{
 			DryRun:    dryRun,
@@ -82,6 +88,7 @@ Options:
 			Partition: partition,
 			Mode:      mode,
 			Force:     force,
+			Replace:   replace,
 		}
 
 		switch importType {
@@ -105,6 +112,7 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().StringVar(&mode, "mode", "", "Processing mode: 'hi_res' (high resolution), 'fast' (default), or 'all' (highest quality). Only supported for 'files' and 'zip' import types (file upload API).")
 	importCmd.Flags().BoolVar(&force, "force", false, "Force import even if documents with the same external ID already exist (creates a new document with the same external ID)")
+	importCmd.Flags().BoolVar(&replace, "replace", false, "Replace existing documents with the same external ID (deletes the existing document and creates a new one)")
 }
 
 func documentExists(c *client.Client, config ImportConfig, externalID string) bool {
@@ -119,6 +127,34 @@ func documentExists(c *client.Client, config ImportConfig, externalID string) bo
 		return false
 	}
 	return len(resp.Documents) > 0
+}
+
+// replaceExistingDocuments deletes all existing documents with the given external ID
+func replaceExistingDocuments(c *client.Client, config ImportConfig, externalID string) error {
+	opts := client.ListOptions{
+		Filter:    map[string]interface{}{"external_id": externalID},
+		PageSize:  100, // Get all documents with this external_id
+		Partition: config.Partition,
+	}
+
+	resp, err := c.ListDocuments(opts)
+	if err != nil {
+		return fmt.Errorf("failed to list existing documents: %v", err)
+	}
+
+	for _, doc := range resp.Documents {
+		if config.DryRun {
+			fmt.Printf("would delete existing document: %s\n", doc.ID)
+		} else {
+			err := c.DeleteDocument(doc.ID)
+			if err != nil {
+				return fmt.Errorf("failed to delete existing document %s: %v", doc.ID, err)
+			}
+			fmt.Printf("deleted existing document: %s\n", doc.ID)
+		}
+	}
+
+	return nil
 }
 
 func createDocumentRaw(c *client.Client, externalID string, name, data string, metadata map[string]interface{}, config ImportConfig) error {
@@ -177,9 +213,20 @@ func ImportYouTube(c *client.Client, youtubeFile string, config ImportConfig) er
 			continue
 		}
 
-		if !config.Force && documentExists(c, config, videoID) {
+		// Handle existing documents based on flags
+		docExists := documentExists(c, config, videoID)
+		if docExists && !config.Force && !config.Replace {
 			fmt.Printf("warning: skipping video with existing document: %s\n", videoID)
 			continue
+		}
+
+		// Replace existing documents if --replace flag is used
+		if config.Replace && docExists {
+			err := replaceExistingDocuments(c, config, videoID)
+			if err != nil {
+				fmt.Printf("failed to replace existing documents for video %s: %v\n", videoID, err)
+				continue
+			}
 		}
 
 		title, _ := item["title"].(string)
@@ -244,9 +291,20 @@ func ImportWordPress(c *client.Client, wordpressFile string, config ImportConfig
 		}
 		metadata["url"] = url
 
-		if !config.Force && documentExists(c, config, url) {
+		// Handle existing documents based on flags
+		docExists := documentExists(c, config, url)
+		if docExists && !config.Force && !config.Replace {
 			fmt.Printf("warning: skipping post with existing document: %s\n", url)
 			continue
+		}
+
+		// Replace existing documents if --replace flag is used
+		if config.Replace && docExists {
+			err := replaceExistingDocuments(c, config, url)
+			if err != nil {
+				fmt.Printf("failed to replace existing documents for post %s: %v\n", url, err)
+				continue
+			}
 		}
 
 		titleElem := item.FindElement("title")
@@ -345,9 +403,20 @@ func ImportReadmeIO(c *client.Client, readmeZip string, config ImportConfig) err
 
 		metadata["readmeId"] = docID
 
-		if !config.Force && documentExists(c, config, docID) {
+		// Handle existing documents based on flags
+		docExists := documentExists(c, config, docID)
+		if docExists && !config.Force && !config.Replace {
 			fmt.Printf("warning: skipping document with existing id: %s\n", docID)
 			continue
+		}
+
+		// Replace existing documents if --replace flag is used
+		if config.Replace && docExists {
+			err := replaceExistingDocuments(c, config, docID)
+			if err != nil {
+				fmt.Printf("failed to replace existing documents for readme document %s: %v\n", docID, err)
+				continue
+			}
 		}
 
 		title, _ := metadata["title"].(string)
@@ -413,10 +482,20 @@ func importFile(c *client.Client, filePath string, relPath string, fileInfo os.F
 	// Generate a unique external ID based on the relative path
 	externalID := filepath.ToSlash(relPath)
 
-	// Skip if document already exists
-	if !config.Force && documentExists(c, config, externalID) {
+	// Handle existing documents based on flags
+	docExists := documentExists(c, config, externalID)
+	if docExists && !config.Force && !config.Replace {
 		fmt.Printf("warning: skipping file with existing document: %s\n", externalID)
 		return nil
+	}
+
+	// Replace existing documents if --replace flag is used
+	if config.Replace && docExists {
+		err := replaceExistingDocuments(c, config, externalID)
+		if err != nil {
+			fmt.Printf("failed to replace existing documents for file %s: %v\n", externalID, err)
+			return nil
+		}
 	}
 
 	// Read file content
@@ -473,10 +552,20 @@ func ImportZip(c *client.Client, zipFile string, config ImportConfig) error {
 		// Generate a unique external ID based on the path within the zip
 		externalID := filepath.ToSlash(file.Name)
 
-		// Skip if document already exists
-		if !config.Force && documentExists(c, config, externalID) {
+		// Handle existing documents based on flags
+		docExists := documentExists(c, config, externalID)
+		if docExists && !config.Force && !config.Replace {
 			fmt.Printf("warning: skipping file with existing document: %s\n", externalID)
 			continue
+		}
+
+		// Replace existing documents if --replace flag is used
+		if config.Replace && docExists {
+			err := replaceExistingDocuments(c, config, externalID)
+			if err != nil {
+				fmt.Printf("failed to replace existing documents for file %s: %v\n", externalID, err)
+				continue
+			}
 		}
 
 		// Open the file within the zip
