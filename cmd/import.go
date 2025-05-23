@@ -23,6 +23,9 @@ type ImportConfig struct {
 	Delay     float64
 	Partition string
 	Mode      string
+	Static    string
+	Audio     bool
+	Video     string
 	Force     bool
 	Replace   bool
 }
@@ -70,7 +73,34 @@ Options:
                    hi_res: Higher quality processing with better accuracy
                    fast: Faster processing with slightly lower accuracy
                    all: Highest quality processing for all media types
-                   Note: mode is only supported for 'files' and 'zip' import types`,
+                   Note: mode is only supported for 'files' and 'zip' import types
+
+  --static string  Static asset processing mode: 'fast' or 'hi_res'
+                   Determines how static assets (images, documents, etc.) should be processed
+                   This flag is additive to the --mode flag
+                   Only supported for 'files' and 'zip' import types
+
+  --audio          Enable audio asset processing (boolean flag)
+                   Determines how audio assets should be handled when creating documents
+                   This flag is additive to the --mode flag
+                   Only supported for 'files' and 'zip' import types
+
+  --video string   Video processing mode: 'audio_only', 'video_only', or 'audio_video'
+                   Determines how video assets should be handled when creating documents
+                   This flag is additive to the --mode flag
+                   Only supported for 'files' and 'zip' import types
+                   
+                   Examples:
+                   --mode=fast --video=audio_only: static="fast", video="audio_only"
+                   --mode=all --static=fast: audio=true, video="audio_video", static="fast"
+                   --audio --static=hi_res: audio=true, static="hi_res" (no video)
+                   --mode=hi_res --static=hi_res: static="hi_res" (no audio/video)
+                   --static=fast: static="fast" only (no audio/video)
+                   --video=video_only: video="video_only" only (no audio/static)
+
+  --force          Force import even if documents with the same external ID already exist (creates a new document with the same external ID)
+
+  --replace        Replace existing documents with the same external ID (deletes the existing document and creates a new one)`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		importType := args[0]
@@ -81,12 +111,40 @@ Options:
 			return fmt.Errorf("--force and --replace flags cannot be used together")
 		}
 
+		// Validate static flag values
+		if static != "" && static != "fast" && static != "hi_res" {
+			return fmt.Errorf("--static must be either 'fast' or 'hi_res'")
+		}
+
+		// Validate that static is only used with files and zip import types
+		if static != "" && importType != "files" && importType != "zip" {
+			return fmt.Errorf("--static flag is only supported for 'files' and 'zip' import types")
+		}
+
+		// Validate that audio is only used with files and zip import types
+		if audio && importType != "files" && importType != "zip" {
+			return fmt.Errorf("--audio flag is only supported for 'files' and 'zip' import types")
+		}
+
+		// Validate video flag values
+		if video != "" && video != "audio_only" && video != "video_only" && video != "audio_video" {
+			return fmt.Errorf("--video must be either 'audio_only', 'video_only', or 'audio_video'")
+		}
+
+		// Validate that video is only used with files and zip import types
+		if video != "" && importType != "files" && importType != "zip" {
+			return fmt.Errorf("--video flag is only supported for 'files' and 'zip' import types")
+		}
+
 		ragieClient := client.NewClient(viper.GetString("api_key"))
 		config := ImportConfig{
 			DryRun:    dryRun,
 			Delay:     delay,
 			Partition: partition,
 			Mode:      mode,
+			Static:    static,
+			Audio:     audio,
+			Video:     video,
 			Force:     force,
 			Replace:   replace,
 		}
@@ -111,6 +169,9 @@ Options:
 func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().StringVar(&mode, "mode", "", "Processing mode: 'hi_res' (high resolution), 'fast' (default), or 'all' (highest quality). Only supported for 'files' and 'zip' import types (file upload API).")
+	importCmd.Flags().StringVar(&static, "static", "", "Static asset processing mode: 'fast' or 'hi_res'. Only supported for 'files' and 'zip' import types. This is additive to the --mode flag.")
+	importCmd.Flags().BoolVar(&audio, "audio", false, "Enable audio asset processing. This is additive to the --mode flag. Only supported for 'files' and 'zip' import types.")
+	importCmd.Flags().StringVar(&video, "video", "", "Video processing mode: 'audio_only', 'video_only', or 'audio_video'. Determines how video assets should be handled when creating documents. This is additive to the --mode flag. Only supported for 'files' and 'zip' import types.")
 	importCmd.Flags().BoolVar(&force, "force", false, "Force import even if documents with the same external ID already exist (creates a new document with the same external ID)")
 	importCmd.Flags().BoolVar(&replace, "replace", false, "Replace existing documents with the same external ID (deletes the existing document and creates a new one)")
 }
@@ -174,6 +235,64 @@ func createDocumentRaw(c *client.Client, externalID string, name, data string, m
 	return nil
 }
 
+// ConstructMode builds the appropriate mode parameter for the API based on the config's Mode, Static, Audio, and Video fields
+func ConstructMode(config ImportConfig) interface{} {
+	// If no mode, no static, no audio, and no video, return nil (use API default)
+	if config.Mode == "" && config.Static == "" && !config.Audio && config.Video == "" {
+		return nil
+	}
+
+	// If only mode is specified (no static, audio, or video), return the mode string for backward compatibility
+	if config.Static == "" && !config.Audio && config.Video == "" {
+		return config.Mode
+	}
+
+	// If static, audio, or video is specified, we need to construct a Mode object
+	mode := &client.Mode{}
+
+	// Set static if specified
+	if config.Static != "" {
+		mode.Static = config.Static
+	}
+
+	// Set audio if enabled (additive)
+	if config.Audio {
+		mode.Audio = true
+	}
+
+	// Set video if specified (additive)
+	if config.Video != "" {
+		mode.Video = config.Video
+	}
+
+	// Handle additive mode logic based on the provided mode
+	switch config.Mode {
+	case "hi_res":
+		// hi_res mode: only static processing (no audio/video unless explicitly set)
+		// static, audio, and video are already set above if specified
+	case "fast":
+		// fast mode: only static processing (no audio/video unless explicitly set)
+		// static, audio, and video are already set above if specified
+	case "all":
+		// all mode: highest quality for all media types
+		mode.Audio = true
+		mode.Video = "audio_video"
+		// static is already set above if specified
+		// if video is explicitly set, it overrides the "all" mode video setting
+		if config.Video != "" {
+			mode.Video = config.Video
+		}
+	case "":
+		// No base mode specified, just use static, audio, and/or video
+		// static, audio, and video are already set above if specified
+	default:
+		// Unknown mode, just use static, audio, and/or video
+		// static, audio, and video are already set above if specified
+	}
+
+	return mode
+}
+
 // createDocument uploads a file using multipart form data
 func createDocument(c *client.Client, externalID string, name string, fileData []byte, fileName string, metadata map[string]interface{}, config ImportConfig) error {
 	if config.DryRun {
@@ -183,7 +302,7 @@ func createDocument(c *client.Client, externalID string, name string, fileData [
 
 	metadata["external_id"] = externalID
 
-	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata, config.Mode)
+	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata, ConstructMode(config))
 	if err != nil {
 		return err
 	}

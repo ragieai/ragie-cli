@@ -14,6 +14,9 @@ var (
 	delay     float64
 	partition string
 	mode      string
+	static    string
+	audio     bool
+	video     string
 	force     bool
 	replace   bool
 )
