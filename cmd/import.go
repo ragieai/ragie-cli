@@ -23,6 +23,7 @@ type ImportConfig struct {
 	Delay     float64
 	Partition string
 	Mode      string
+	Static    string
 	Force     bool
 	Replace   bool
 }
@@ -70,7 +71,17 @@ Options:
                    hi_res: Higher quality processing with better accuracy
                    fast: Faster processing with slightly lower accuracy
                    all: Highest quality processing for all media types
-                   Note: mode is only supported for 'files' and 'zip' import types`,
+                   Note: mode is only supported for 'files' and 'zip' import types
+
+  --static string  Static asset processing mode: 'fast' or 'hi_res'
+                   Determines how static assets (images, documents, etc.) should be processed
+                   This flag is additive to the --mode flag
+                   Only supported for 'files' and 'zip' import types
+                   
+                   Examples:
+                   --mode=all --static=fast: audio=true, video="audio_video", static="fast"
+                   --mode=hi_res --static=hi_res: static="hi_res" (no audio/video)
+                   --static=fast: static="fast" only (no audio/video)`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		importType := args[0]
@@ -81,12 +92,23 @@ Options:
 			return fmt.Errorf("--force and --replace flags cannot be used together")
 		}
 
+		// Validate static flag values
+		if static != "" && static != "fast" && static != "hi_res" {
+			return fmt.Errorf("--static must be either 'fast' or 'hi_res'")
+		}
+
+		// Validate that static is only used with files and zip import types
+		if static != "" && importType != "files" && importType != "zip" {
+			return fmt.Errorf("--static flag is only supported for 'files' and 'zip' import types")
+		}
+
 		ragieClient := client.NewClient(viper.GetString("api_key"))
 		config := ImportConfig{
 			DryRun:    dryRun,
 			Delay:     delay,
 			Partition: partition,
 			Mode:      mode,
+			Static:    static,
 			Force:     force,
 			Replace:   replace,
 		}
@@ -111,6 +133,7 @@ Options:
 func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().StringVar(&mode, "mode", "", "Processing mode: 'hi_res' (high resolution), 'fast' (default), or 'all' (highest quality). Only supported for 'files' and 'zip' import types (file upload API).")
+	importCmd.Flags().StringVar(&static, "static", "", "Static asset processing mode: 'fast' or 'hi_res'. Only supported for 'files' and 'zip' import types. This is additive to the --mode flag.")
 	importCmd.Flags().BoolVar(&force, "force", false, "Force import even if documents with the same external ID already exist (creates a new document with the same external ID)")
 	importCmd.Flags().BoolVar(&replace, "replace", false, "Replace existing documents with the same external ID (deletes the existing document and creates a new one)")
 }
@@ -174,6 +197,46 @@ func createDocumentRaw(c *client.Client, externalID string, name, data string, m
 	return nil
 }
 
+// ConstructMode builds the appropriate mode parameter for the API based on the config's Mode and Static fields
+func ConstructMode(config ImportConfig) interface{} {
+	// If no mode and no static, return nil (use API default)
+	if config.Mode == "" && config.Static == "" {
+		return nil
+	}
+
+	// If only mode is specified (no static), return the mode string for backward compatibility
+	if config.Static == "" {
+		return config.Mode
+	}
+
+	// If static is specified, we need to construct a Mode object
+	mode := &client.Mode{
+		Static: config.Static,
+	}
+
+	// Handle additive mode logic based on the provided mode
+	switch config.Mode {
+	case "hi_res":
+		// hi_res mode: only static processing (no audio/video)
+		// mode.Static is already set above
+	case "fast":
+		// fast mode: only static processing (no audio/video)
+		// mode.Static is already set above
+	case "all":
+		// all mode: highest quality for all media types
+		mode.Audio = true
+		mode.Video = "audio_video"
+	case "":
+		// No base mode specified, just use static
+		// mode.Static is already set above
+	default:
+		// Unknown mode, just use static
+		// mode.Static is already set above
+	}
+
+	return mode
+}
+
 // createDocument uploads a file using multipart form data
 func createDocument(c *client.Client, externalID string, name string, fileData []byte, fileName string, metadata map[string]interface{}, config ImportConfig) error {
 	if config.DryRun {
@@ -183,7 +246,7 @@ func createDocument(c *client.Client, externalID string, name string, fileData [
 
 	metadata["external_id"] = externalID
 
-	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata, config.Mode)
+	doc, err := c.CreateDocument(config.Partition, name, fileData, fileName, metadata, ConstructMode(config))
 	if err != nil {
 		return err
 	}
