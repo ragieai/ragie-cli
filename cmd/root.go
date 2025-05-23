@@ -16,6 +16,7 @@ var (
 	mode      string
 	static    string
 	audio     bool
+	video     string
 	force     bool
 	replace   bool
 )

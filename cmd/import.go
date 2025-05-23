@@ -25,6 +25,7 @@ type ImportConfig struct {
 	Mode      string
 	Static    string
 	Audio     bool
+	Video     string
 	Force     bool
 	Replace   bool
 }
@@ -83,13 +84,19 @@ Options:
                    Determines how audio assets should be handled when creating documents
                    This flag is additive to the --mode flag
                    Only supported for 'files' and 'zip' import types
+
+  --video string   Video processing mode: 'audio_only', 'video_only', or 'audio_video'
+                   Determines how video assets should be handled when creating documents
+                   This flag is additive to the --mode flag
+                   Only supported for 'files' and 'zip' import types
                    
                    Examples:
-                   --mode=fast --audio: static="fast", audio=true
+                   --mode=fast --video=audio_only: static="fast", video="audio_only"
                    --mode=all --static=fast: audio=true, video="audio_video", static="fast"
                    --audio --static=hi_res: audio=true, static="hi_res" (no video)
                    --mode=hi_res --static=hi_res: static="hi_res" (no audio/video)
                    --static=fast: static="fast" only (no audio/video)
+                   --video=video_only: video="video_only" only (no audio/static)
 
   --force          Force import even if documents with the same external ID already exist (creates a new document with the same external ID)
 
@@ -119,6 +126,16 @@ Options:
 			return fmt.Errorf("--audio flag is only supported for 'files' and 'zip' import types")
 		}
 
+		// Validate video flag values
+		if video != "" && video != "audio_only" && video != "video_only" && video != "audio_video" {
+			return fmt.Errorf("--video must be either 'audio_only', 'video_only', or 'audio_video'")
+		}
+
+		// Validate that video is only used with files and zip import types
+		if video != "" && importType != "files" && importType != "zip" {
+			return fmt.Errorf("--video flag is only supported for 'files' and 'zip' import types")
+		}
+
 		ragieClient := client.NewClient(viper.GetString("api_key"))
 		config := ImportConfig{
 			DryRun:    dryRun,
@@ -127,6 +144,7 @@ Options:
 			Mode:      mode,
 			Static:    static,
 			Audio:     audio,
+			Video:     video,
 			Force:     force,
 			Replace:   replace,
 		}
@@ -153,6 +171,7 @@ func init() {
 	importCmd.Flags().StringVar(&mode, "mode", "", "Processing mode: 'hi_res' (high resolution), 'fast' (default), or 'all' (highest quality). Only supported for 'files' and 'zip' import types (file upload API).")
 	importCmd.Flags().StringVar(&static, "static", "", "Static asset processing mode: 'fast' or 'hi_res'. Only supported for 'files' and 'zip' import types. This is additive to the --mode flag.")
 	importCmd.Flags().BoolVar(&audio, "audio", false, "Enable audio asset processing. This is additive to the --mode flag. Only supported for 'files' and 'zip' import types.")
+	importCmd.Flags().StringVar(&video, "video", "", "Video processing mode: 'audio_only', 'video_only', or 'audio_video'. Determines how video assets should be handled when creating documents. This is additive to the --mode flag. Only supported for 'files' and 'zip' import types.")
 	importCmd.Flags().BoolVar(&force, "force", false, "Force import even if documents with the same external ID already exist (creates a new document with the same external ID)")
 	importCmd.Flags().BoolVar(&replace, "replace", false, "Replace existing documents with the same external ID (deletes the existing document and creates a new one)")
 }
@@ -216,19 +235,19 @@ func createDocumentRaw(c *client.Client, externalID string, name, data string, m
 	return nil
 }
 
-// ConstructMode builds the appropriate mode parameter for the API based on the config's Mode, Static, and Audio fields
+// ConstructMode builds the appropriate mode parameter for the API based on the config's Mode, Static, Audio, and Video fields
 func ConstructMode(config ImportConfig) interface{} {
-	// If no mode, no static, and no audio, return nil (use API default)
-	if config.Mode == "" && config.Static == "" && !config.Audio {
+	// If no mode, no static, no audio, and no video, return nil (use API default)
+	if config.Mode == "" && config.Static == "" && !config.Audio && config.Video == "" {
 		return nil
 	}
 
-	// If only mode is specified (no static or audio), return the mode string for backward compatibility
-	if config.Static == "" && !config.Audio {
+	// If only mode is specified (no static, audio, or video), return the mode string for backward compatibility
+	if config.Static == "" && !config.Audio && config.Video == "" {
 		return config.Mode
 	}
 
-	// If static or audio is specified, we need to construct a Mode object
+	// If static, audio, or video is specified, we need to construct a Mode object
 	mode := &client.Mode{}
 
 	// Set static if specified
@@ -241,25 +260,34 @@ func ConstructMode(config ImportConfig) interface{} {
 		mode.Audio = true
 	}
 
+	// Set video if specified (additive)
+	if config.Video != "" {
+		mode.Video = config.Video
+	}
+
 	// Handle additive mode logic based on the provided mode
 	switch config.Mode {
 	case "hi_res":
 		// hi_res mode: only static processing (no audio/video unless explicitly set)
-		// static and audio are already set above if specified
+		// static, audio, and video are already set above if specified
 	case "fast":
 		// fast mode: only static processing (no audio/video unless explicitly set)
-		// static and audio are already set above if specified
+		// static, audio, and video are already set above if specified
 	case "all":
 		// all mode: highest quality for all media types
 		mode.Audio = true
 		mode.Video = "audio_video"
 		// static is already set above if specified
+		// if video is explicitly set, it overrides the "all" mode video setting
+		if config.Video != "" {
+			mode.Video = config.Video
+		}
 	case "":
-		// No base mode specified, just use static and/or audio
-		// static and audio are already set above if specified
+		// No base mode specified, just use static, audio, and/or video
+		// static, audio, and video are already set above if specified
 	default:
-		// Unknown mode, just use static and/or audio
-		// static and audio are already set above if specified
+		// Unknown mode, just use static, audio, and/or video
+		// static, audio, and video are already set above if specified
 	}
 
 	return mode
