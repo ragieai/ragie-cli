@@ -24,6 +24,7 @@ type ImportConfig struct {
 	Partition string
 	Mode      string
 	Static    string
+	Audio     bool
 	Force     bool
 	Replace   bool
 }
@@ -77,11 +78,22 @@ Options:
                    Determines how static assets (images, documents, etc.) should be processed
                    This flag is additive to the --mode flag
                    Only supported for 'files' and 'zip' import types
+
+  --audio          Enable audio asset processing (boolean flag)
+                   Determines how audio assets should be handled when creating documents
+                   This flag is additive to the --mode flag
+                   Only supported for 'files' and 'zip' import types
                    
                    Examples:
+                   --mode=fast --audio: static="fast", audio=true
                    --mode=all --static=fast: audio=true, video="audio_video", static="fast"
+                   --audio --static=hi_res: audio=true, static="hi_res" (no video)
                    --mode=hi_res --static=hi_res: static="hi_res" (no audio/video)
-                   --static=fast: static="fast" only (no audio/video)`,
+                   --static=fast: static="fast" only (no audio/video)
+
+  --force          Force import even if documents with the same external ID already exist (creates a new document with the same external ID)
+
+  --replace        Replace existing documents with the same external ID (deletes the existing document and creates a new one)`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		importType := args[0]
@@ -102,6 +114,11 @@ Options:
 			return fmt.Errorf("--static flag is only supported for 'files' and 'zip' import types")
 		}
 
+		// Validate that audio is only used with files and zip import types
+		if audio && importType != "files" && importType != "zip" {
+			return fmt.Errorf("--audio flag is only supported for 'files' and 'zip' import types")
+		}
+
 		ragieClient := client.NewClient(viper.GetString("api_key"))
 		config := ImportConfig{
 			DryRun:    dryRun,
@@ -109,6 +126,7 @@ Options:
 			Partition: partition,
 			Mode:      mode,
 			Static:    static,
+			Audio:     audio,
 			Force:     force,
 			Replace:   replace,
 		}
@@ -134,6 +152,7 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().StringVar(&mode, "mode", "", "Processing mode: 'hi_res' (high resolution), 'fast' (default), or 'all' (highest quality). Only supported for 'files' and 'zip' import types (file upload API).")
 	importCmd.Flags().StringVar(&static, "static", "", "Static asset processing mode: 'fast' or 'hi_res'. Only supported for 'files' and 'zip' import types. This is additive to the --mode flag.")
+	importCmd.Flags().BoolVar(&audio, "audio", false, "Enable audio asset processing. This is additive to the --mode flag. Only supported for 'files' and 'zip' import types.")
 	importCmd.Flags().BoolVar(&force, "force", false, "Force import even if documents with the same external ID already exist (creates a new document with the same external ID)")
 	importCmd.Flags().BoolVar(&replace, "replace", false, "Replace existing documents with the same external ID (deletes the existing document and creates a new one)")
 }
@@ -197,41 +216,50 @@ func createDocumentRaw(c *client.Client, externalID string, name, data string, m
 	return nil
 }
 
-// ConstructMode builds the appropriate mode parameter for the API based on the config's Mode and Static fields
+// ConstructMode builds the appropriate mode parameter for the API based on the config's Mode, Static, and Audio fields
 func ConstructMode(config ImportConfig) interface{} {
-	// If no mode and no static, return nil (use API default)
-	if config.Mode == "" && config.Static == "" {
+	// If no mode, no static, and no audio, return nil (use API default)
+	if config.Mode == "" && config.Static == "" && !config.Audio {
 		return nil
 	}
 
-	// If only mode is specified (no static), return the mode string for backward compatibility
-	if config.Static == "" {
+	// If only mode is specified (no static or audio), return the mode string for backward compatibility
+	if config.Static == "" && !config.Audio {
 		return config.Mode
 	}
 
-	// If static is specified, we need to construct a Mode object
-	mode := &client.Mode{
-		Static: config.Static,
+	// If static or audio is specified, we need to construct a Mode object
+	mode := &client.Mode{}
+
+	// Set static if specified
+	if config.Static != "" {
+		mode.Static = config.Static
+	}
+
+	// Set audio if enabled (additive)
+	if config.Audio {
+		mode.Audio = true
 	}
 
 	// Handle additive mode logic based on the provided mode
 	switch config.Mode {
 	case "hi_res":
-		// hi_res mode: only static processing (no audio/video)
-		// mode.Static is already set above
+		// hi_res mode: only static processing (no audio/video unless explicitly set)
+		// static and audio are already set above if specified
 	case "fast":
-		// fast mode: only static processing (no audio/video)
-		// mode.Static is already set above
+		// fast mode: only static processing (no audio/video unless explicitly set)
+		// static and audio are already set above if specified
 	case "all":
 		// all mode: highest quality for all media types
 		mode.Audio = true
 		mode.Video = "audio_video"
+		// static is already set above if specified
 	case "":
-		// No base mode specified, just use static
-		// mode.Static is already set above
+		// No base mode specified, just use static and/or audio
+		// static and audio are already set above if specified
 	default:
-		// Unknown mode, just use static
-		// mode.Static is already set above
+		// Unknown mode, just use static and/or audio
+		// static and audio are already set above if specified
 	}
 
 	return mode

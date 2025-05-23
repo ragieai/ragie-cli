@@ -15,6 +15,7 @@ var (
 	partition string
 	mode      string
 	static    string
+	audio     bool
 	force     bool
 	replace   bool
 )
