@@ -48,6 +48,33 @@ func TestImportCmdFlagValidation(t *testing.T) {
 			expectError: true,
 			errorMsg:    "--audio flag is only supported for 'files' and 'zip' import types",
 		},
+		{
+			name:        "valid command with video flag for files",
+			args:        []string{"--video=audio_only", "files", "/tmp/test"},
+			expectError: false,
+		},
+		{
+			name:        "valid command with video flag audio_video for zip",
+			args:        []string{"--video=audio_video", "zip", "/tmp/test.zip"},
+			expectError: false,
+		},
+		{
+			name:        "valid command with video flag video_only for files",
+			args:        []string{"--video=video_only", "files", "/tmp/test"},
+			expectError: false,
+		},
+		{
+			name:        "invalid command with video flag for youtube",
+			args:        []string{"--video=audio_only", "youtube", "/tmp/test"},
+			expectError: true,
+			errorMsg:    "--video flag is only supported for 'files' and 'zip' import types",
+		},
+		{
+			name:        "invalid video flag value",
+			args:        []string{"--video=invalid", "files", "/tmp/test"},
+			expectError: true,
+			errorMsg:    "--video must be either 'audio_only', 'video_only', or 'audio_video'",
+		},
 	}
 
 	for _, tt := range tests {
@@ -56,6 +83,7 @@ func TestImportCmdFlagValidation(t *testing.T) {
 			force = false
 			replace = false
 			audio = false
+			video = ""
 
 			// Create a new command for testing
 			cmd := &cobra.Command{
@@ -74,6 +102,16 @@ func TestImportCmdFlagValidation(t *testing.T) {
 						return fmt.Errorf("--audio flag is only supported for 'files' and 'zip' import types")
 					}
 
+					// Validate video flag values
+					if video != "" && video != "audio_only" && video != "video_only" && video != "audio_video" {
+						return fmt.Errorf("--video must be either 'audio_only', 'video_only', or 'audio_video'")
+					}
+
+					// Validate that video is only used with files and zip import types
+					if video != "" && importType != "files" && importType != "zip" {
+						return fmt.Errorf("--video flag is only supported for 'files' and 'zip' import types")
+					}
+
 					return nil
 				},
 			}
@@ -81,6 +119,7 @@ func TestImportCmdFlagValidation(t *testing.T) {
 			cmd.Flags().BoolVar(&force, "force", false, "Force import")
 			cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing documents")
 			cmd.Flags().BoolVar(&audio, "audio", false, "Enable audio processing")
+			cmd.Flags().StringVar(&video, "video", "", "Video processing mode")
 
 			// Set arguments and parse flags
 			cmd.SetArgs(tt.args)
@@ -144,6 +183,36 @@ func TestConstructMode(t *testing.T) {
 			name:     "mode all + static + audio (audio should still be true)",
 			config:   ImportConfig{Mode: "all", Static: "fast", Audio: true},
 			expected: &client.Mode{Static: "fast", Audio: true, Video: "audio_video"},
+		},
+		{
+			name:     "video only",
+			config:   ImportConfig{Video: "audio_only"},
+			expected: &client.Mode{Video: "audio_only"},
+		},
+		{
+			name:     "video video_only",
+			config:   ImportConfig{Video: "video_only"},
+			expected: &client.Mode{Video: "video_only"},
+		},
+		{
+			name:     "video audio_video",
+			config:   ImportConfig{Video: "audio_video"},
+			expected: &client.Mode{Video: "audio_video"},
+		},
+		{
+			name:     "mode fast + video",
+			config:   ImportConfig{Mode: "fast", Video: "audio_only"},
+			expected: &client.Mode{Video: "audio_only"},
+		},
+		{
+			name:     "mode all + video (explicit video overrides)",
+			config:   ImportConfig{Mode: "all", Video: "video_only"},
+			expected: &client.Mode{Audio: true, Video: "video_only"},
+		},
+		{
+			name:     "static + audio + video",
+			config:   ImportConfig{Static: "hi_res", Audio: true, Video: "audio_video"},
+			expected: &client.Mode{Static: "hi_res", Audio: true, Video: "audio_video"},
 		},
 	}
 
