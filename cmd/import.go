@@ -149,6 +149,11 @@ Options:
 			Replace:   replace,
 		}
 
+		// Display processing mode status for files and zip import types
+		if importType == "files" || importType == "zip" {
+			displayProcessingModeStatus(config)
+		}
+
 		switch importType {
 		case "youtube":
 			return ImportYouTube(ragieClient, file, config)
@@ -216,6 +221,56 @@ func replaceExistingDocuments(c *client.Client, config ImportConfig, externalID 
 	}
 
 	return nil
+}
+
+// displayProcessingModeStatus displays the processing mode status for files and zip import types
+func displayProcessingModeStatus(config ImportConfig) {
+	// Only show status if any processing flags are set
+	if config.Mode == "" && config.Static == "" && !config.Audio && config.Video == "" {
+		fmt.Println("Processing mode: default (no specific mode flags set)")
+		return
+	}
+
+	fmt.Println("Processing configuration:")
+
+	if config.Mode != "" {
+		fmt.Printf("  Base mode: %s\n", config.Mode)
+	}
+
+	if config.Static != "" {
+		fmt.Printf("  Static asset processing: %s\n", config.Static)
+	}
+
+	if config.Audio {
+		fmt.Println("  Audio asset processing: enabled")
+	}
+
+	if config.Video != "" {
+		fmt.Printf("  Video processing: %s\n", config.Video)
+	}
+
+	// Show the effective mode that will be sent to the API
+	effectiveMode := ConstructMode(config)
+	if effectiveMode != nil {
+		switch mode := effectiveMode.(type) {
+		case string:
+			fmt.Printf("  Effective API mode: %s\n", mode)
+		case *client.Mode:
+			fmt.Print("  Effective API mode: {")
+			parts := []string{}
+			if mode.Static != "" {
+				parts = append(parts, fmt.Sprintf("static=%s", mode.Static))
+			}
+			if mode.Audio {
+				parts = append(parts, "audio=true")
+			}
+			if mode.Video != "" {
+				parts = append(parts, fmt.Sprintf("video=%s", mode.Video))
+			}
+			fmt.Printf("%s}\n", strings.Join(parts, ", "))
+		}
+	}
+	fmt.Println()
 }
 
 func createDocumentRaw(c *client.Client, externalID string, name, data string, metadata map[string]interface{}, config ImportConfig) error {
