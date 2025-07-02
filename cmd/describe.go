@@ -101,29 +101,39 @@ func generateDescription(ragieClient *client.Client, openaiClient *openai.Client
 
 func getSamples(ragieClient *client.Client, partition string, maxSamples int) ([]string, error) {
 	var summaries []string
-	count := 0
+	var cursor string
 
-	// Get documents
-	resp, err := ragieClient.ListDocuments(client.ListOptions{
-		Partition: partition,
-		PageSize:  maxSamples,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list documents: %w", err)
-	}
-
-	// Get summaries for each document
-	for _, doc := range resp.Documents {
-		summary, err := ragieClient.GetDocumentSummary(doc.ID, partition)
+	for len(summaries) < maxSamples {
+		// Get documents with pagination
+		resp, err := ragieClient.ListDocuments(client.ListOptions{
+			Partition: partition,
+			Cursor:    cursor,
+		})
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: No summary for document %s: %v\n", doc.ID, err)
-			continue
+			return nil, fmt.Errorf("failed to list documents: %w", err)
 		}
 
-		summaries = append(summaries, summary.Summary)
-		count++
+		// Get summaries for each document in this page
+		for _, doc := range resp.Documents {
+			summary, err := ragieClient.GetDocumentSummary(doc.ID, partition)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: No summary for document %s: %v\n", doc.ID, err)
+				continue
+			}
 
-		if count >= maxSamples {
+			summaries = append(summaries, summary.Summary)
+
+			// Check if we've reached the maximum number of samples
+			if len(summaries) >= maxSamples {
+				break
+			}
+		}
+
+		// Update cursor for next page
+		cursor = resp.Pagination.NextCursor
+
+		// If no next cursor or we've reached the max samples, we're done
+		if cursor == "" || len(summaries) >= maxSamples {
 			break
 		}
 	}
