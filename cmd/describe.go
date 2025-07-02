@@ -117,10 +117,6 @@ func getSamples(ragieClient *client.Client, partition string, maxSamples int) ([
 
 	// Get summaries for each document
 	for _, doc := range resp.Documents {
-		if count >= maxSamples {
-			break
-		}
-
 		summary, err := ragieClient.GetDocumentSummary(doc.ID, partition)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: No summary for document %s: %v\n", doc.ID, err)
@@ -129,6 +125,10 @@ func getSamples(ragieClient *client.Client, partition string, maxSamples int) ([
 
 		summaries = append(summaries, summary.Summary)
 		count++
+
+		if count >= maxSamples {
+			break
+		}
 	}
 
 	return summaries, nil
