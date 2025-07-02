@@ -41,9 +41,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Print what would happen without making changes")
 	rootCmd.PersistentFlags().Float64Var(&delay, "delay", 2.0, "Delay between imports in seconds")
 	rootCmd.PersistentFlags().StringVar(&partition, "partition", "", "Optional partition to use for operations")
-
-	// Bind flags to viper
-	viper.BindPFlag("partition", rootCmd.PersistentFlags().Lookup("partition"))
 }
 
 func initConfig() {
