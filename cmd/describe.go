@@ -50,9 +50,6 @@ func runDescribe(cmd *cobra.Command, args []string) error {
 	ragieClient := client.NewClient(ragieApiKey)
 	openaiClient := openai.NewClient(openaiApiKey)
 
-	// Get partition from flags
-	partition := viper.GetString("partition")
-
 	// Generate description
 	description, err := generateDescription(ragieClient, openaiClient, partition, maxSamples)
 	if err != nil {
