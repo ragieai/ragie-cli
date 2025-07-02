@@ -40,6 +40,12 @@ Set your Ragie API key as an environment variable:
 export RAGIE_API_KEY=your_api_key_here
 ```
 
+For the `describe` command, you'll also need to set your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY=your_openai_api_key_here
+```
+
 ## Usage
 
 ### Import YouTube Data
@@ -93,6 +99,19 @@ The zip importer will process all files within the ZIP archive without extractin
 ```bash
 ragie clear [--dry-run] [--partition your-partition]
 ```
+
+### Generate Tool Description
+
+```bash
+ragie describe [--partition your-partition] [--max-samples 10] [--shell-escape]
+```
+
+The describe command generates a description for a Ragie retrieval tool by analyzing document summaries from the specified partition. It uses OpenAI to create a coherent description of the knowledge base contents.
+
+**Flags:**
+- `--partition`: Specify the partition to analyze (optional)
+- `--max-samples`: Maximum number of documents to use for description generation (default: 10)
+- `--shell-escape`: Output description in JSON and shell-safe format (escapes quotes)
 
 ### Global Flags
 

@@ -29,6 +29,10 @@ type Document struct {
 	Metadata map[string]interface{} `json:"metadata"`
 }
 
+type DocumentSummary struct {
+	Summary string `json:"summary"`
+}
+
 type ListOptions struct {
 	Filter    map[string]interface{} `json:"filter,omitempty"`
 	PageSize  int                    `json:"page_size,omitempty"`
@@ -158,6 +162,36 @@ func (c *Client) DeleteDocument(id string) error {
 	}
 
 	return nil
+}
+
+func (c *Client) GetDocumentSummary(documentId string, partition string) (*DocumentSummary, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/documents/%s/summary", BaseURL, documentId), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	if partition != "" {
+		req.Header.Set("Partition", partition)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %s - %s", resp.Status, string(body))
+	}
+
+	var summary DocumentSummary
+	if err := json.NewDecoder(resp.Body).Decode(&summary); err != nil {
+		return nil, err
+	}
+
+	return &summary, nil
 }
 
 // CreateDocument uploads a file using multipart form data
