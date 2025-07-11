@@ -113,6 +113,67 @@ The describe command generates a description for a Ragie retrieval tool by analy
 - `--max-samples`: Maximum number of documents to use for description generation (default: 10)
 - `--shell-escape`: Output description in JSON and shell-safe format (escapes quotes)
 
+### Retrieve Documents
+
+```bash
+ragie retrieve "your search query" [--top-k 8] [--filter '{"source_type":"files"}'] [--partition your-partition] [--rerank] [--max-chunks-per-document 5] [--recency-bias]
+```
+
+The retrieve command performs semantic search on your documents in Ragie and returns the most relevant results as JSON. This is useful for testing your knowledge base or integrating with other tools.
+
+**Flags:**
+- `--top-k`: Maximum number of results to return (default: 8)
+- `--filter`: JSON filter to apply to the search (e.g., `'{"source_type":"files"}'` to only search files)
+- `--partition`: Specify the partition to search in (optional)
+- `--rerank`: Rerank chunks for semantic relevancy post cosine similarity
+- `--max-chunks-per-document`: Maximum number of chunks to retrieve per document
+- `--recency-bias`: Enable recency bias to favor more recent documents
+
+**Examples:**
+```bash
+# Basic search for documents about "API documentation"
+ragie retrieve "API documentation"
+
+# Search with custom limit and filter
+ragie retrieve "configuration" --top-k 5 --filter '{"source_type":"files"}'
+
+# Search in a specific partition with reranking
+ragie retrieve "user guide" --partition production --rerank
+
+# Search with recency bias and chunk limits
+ragie retrieve "latest updates" --recency-bias --max-chunks-per-document 3
+```
+
+The output is formatted as JSON with the following structure:
+```json
+{
+  "scored_chunks": [
+    {
+      "text": "Document content chunk...",
+      "score": 0.95,
+      "id": "chunk_id",
+      "index": 0,
+      "metadata": {
+        "source_type": "files",
+        "path": "path/to/file.txt"
+      },
+      "document_id": "doc_id",
+      "document_name": "Document Name",
+      "document_metadata": {
+        "source_type": "files",
+        "path": "path/to/file.txt"
+      },
+      "links": {
+        "self": {
+          "href": "https://api.ragie.ai/chunks/chunk_id",
+          "type": "application/json"
+        }
+      }
+    }
+  ]
+}
+```
+
 ### Global Flags
 
 - `--dry-run`: Print what would happen without making changes
