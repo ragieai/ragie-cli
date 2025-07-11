@@ -33,6 +33,37 @@ type DocumentSummary struct {
 	Summary string `json:"summary"`
 }
 
+type RetrievalResult struct {
+	Text             string                 `json:"text"`
+	Score            float64                `json:"score"`
+	ID               string                 `json:"id"`
+	Index            int                    `json:"index"`
+	Metadata         map[string]interface{} `json:"metadata"`
+	DocumentID       string                 `json:"document_id"`
+	DocumentName     string                 `json:"document_name"`
+	DocumentMetadata map[string]interface{} `json:"document_metadata"`
+	Links            map[string]Link        `json:"links"`
+}
+
+type Link struct {
+	Href string `json:"href"`
+	Type string `json:"type"`
+}
+
+type RetrievalResponse struct {
+	ScoredChunks []RetrievalResult `json:"scored_chunks"`
+}
+
+type RetrievalOptions struct {
+	Query                string                 `json:"query"`
+	Filter               map[string]interface{} `json:"filter,omitempty"`
+	TopK                 *int                   `json:"top_k,omitempty"`
+	Partition            *string                `json:"partition,omitempty"`
+	Rerank               *bool                  `json:"rerank,omitempty"`
+	MaxChunksPerDocument *int                   `json:"max_chunks_per_document,omitempty"`
+	RecencyBias          *bool                  `json:"recency_bias,omitempty"`
+}
+
 type ListOptions struct {
 	Filter    map[string]interface{} `json:"filter,omitempty"`
 	PageSize  int                    `json:"page_size,omitempty"`
@@ -287,4 +318,63 @@ func (c *Client) CreateDocument(partition string, name string, fileData []byte, 
 	}
 
 	return &doc, nil
+}
+
+func (c *Client) Retrieve(opts RetrievalOptions) (*RetrievalResponse, error) {
+	payload := map[string]interface{}{
+		"query": opts.Query,
+	}
+
+	if opts.Filter != nil {
+		payload["filter"] = opts.Filter
+	}
+	if opts.TopK != nil {
+		payload["top_k"] = *opts.TopK
+	}
+	if opts.Rerank != nil {
+		payload["rerank"] = *opts.Rerank
+	}
+	if opts.MaxChunksPerDocument != nil {
+		payload["max_chunks_per_document"] = *opts.MaxChunksPerDocument
+	}
+	if opts.RecencyBias != nil {
+		payload["recency_bias"] = *opts.RecencyBias
+	}
+	if opts.Partition != nil {
+		payload["partition"] = *opts.Partition
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/retrievals", BaseURL), bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	req.Header.Set("Content-Type", "application/json")
+	if opts.Partition != nil {
+		req.Header.Set("Partition", *opts.Partition)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %s - %s", resp.Status, string(body))
+	}
+
+	var retrievalResp RetrievalResponse
+	if err := json.NewDecoder(resp.Body).Decode(&retrievalResp); err != nil {
+		return nil, err
+	}
+
+	return &retrievalResp, nil
 }
